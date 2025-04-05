@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using CriticalCommonLib.Extensions;
+using CriticalCommonLib.GameStructs;
 using CriticalCommonLib.Models;
+using CriticalCommonLib.Services.Hook;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using InventoryItem = FFXIVClientStructs.FFXIV.Client.Game.InventoryItem;
@@ -12,12 +14,14 @@ namespace CriticalCommonLib.Services.SubInventoryScanner;
 /// <summary>
 /// 雇员物品栏扫描器，用于扫描和管理游戏中雇员的物品栏内容
 /// </summary>
-public class RetainerInventoryScanner
+public class RetainerInventoryScanner : IDisposable
 {
     // 角色监视器，用于获取当前活动的雇员ID
     private readonly ICharacterMonitor _characterMonitor;
     // 出售商品顺序服务，用于处理雇员出售商品的顺序
     private readonly IMarketOrderService _marketOrderService;
+    private readonly ContainerInfoHook _containerInfoHook;
+
     // 已加载的物品栏类型集合
     private readonly HashSet<InventoryType> _loadedInventories = new();
     // 插件日志服务
@@ -25,6 +29,8 @@ public class RetainerInventoryScanner
     
     // 缓存雇员市场物品价格的字典，键为雇员ID，值为价格数组
     private readonly Dictionary<ulong,uint[]> _cachedRetainerMarketPrices = new Dictionary<ulong, uint[]>();
+
+    private bool isDisposed = false;
 
     // 内存中的雇员及其已加载的物品栏类型
     public Dictionary<ulong, HashSet<InventoryType>> InMemoryRetainers { get; } = new();
@@ -46,12 +52,18 @@ public class RetainerInventoryScanner
     public RetainerInventoryScanner(
         ICharacterMonitor characterMonitor, 
         IMarketOrderService marketOrderService, 
-        IPluginLog pluginLog)
+        IPluginLog pluginLog,
+        ContainerInfoHook containerInfoHook)
     {
         _characterMonitor = characterMonitor;
         _marketOrderService = marketOrderService;
         _pluginLog = pluginLog;
-        
+        _containerInfoHook = containerInfoHook;
+
+        // 注册事件
+        _containerInfoHook.ContainerInfoReceived += OnContainerInfoReceived;
+        _characterMonitor.OnActiveRetainerChanged += CharacterMonitorOnOnActiveRetainerChanged;
+
         // 初始化物品栏类型到对应字典的映射
         _inventoryMap = new Dictionary<InventoryType, Dictionary<ulong, InventoryItem[]>>()
         {
@@ -67,6 +79,19 @@ public class RetainerInventoryScanner
         };
     }
 
+    private void OnContainerInfoReceived(ContainerInfo containerInfo, InventoryType inventoryType)
+    {
+        _loadedInventories.Add(inventoryType);
+    }
+    
+    private void CharacterMonitorOnOnActiveRetainerChanged(ulong retainerid)
+    {
+        if (retainerid == 0)
+        {
+            _loadedInventories.Clear();
+        }
+    }
+    
     /// <summary>
     /// 获取指定类型的物品栏容器
     /// </summary>
@@ -350,6 +375,23 @@ public class RetainerInventoryScanner
                 }
                 absoluteIndex++;
             }
+        }
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(true);
+    }
+
+    protected virtual void Dispose(bool isDisposing)
+    {
+        if (isDisposed) return;
+
+        if (isDisposing)
+        {
+            _containerInfoHook.ContainerInfoReceived -= OnContainerInfoReceived;
+            _characterMonitor.OnActiveRetainerChanged -= CharacterMonitorOnOnActiveRetainerChanged;
         }
     }
 }

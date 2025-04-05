@@ -109,13 +109,11 @@ namespace CriticalCommonLib.Services
             _framework.RunOnFrameworkThread(() =>
             {
                 _gameInteropProvider.InitializeFromAttributes(this);
-                _containerInfoNetworkHook?.Enable();
                 _itemMarketBoardInfoHook?.Enable();
             });
             framework.Update += FrameworkOnUpdate;
             _gameUiManager.UiVisibilityChanged += GameUiManagerOnUiManagerVisibilityChanged;
             _characterMonitor.OnCharacterUpdated += CharacterMonitorOnOnCharacterUpdated;
-            _characterMonitor.OnActiveRetainerChanged += CharacterMonitorOnOnActiveRetainerChanged;
             _characterMonitor.OnActiveFreeCompanyChanged += CharacterMonitorOnOnActiveFreeCompanyChanged;
             _characterMonitor.OnActiveHouseChanged += CharacterMonitorOnOnActiveHouseChanged;
             _odrScanner.OnSortOrderChanged += SortOrderChanged;
@@ -388,17 +386,6 @@ namespace CriticalCommonLib.Services
             }
         }
 
-
-        private void CharacterMonitorOnOnActiveRetainerChanged(ulong retainerid)
-        {
-            if (retainerid == 0)
-                _loadedInventories.RemoveWhere(c => c is InventoryType.RetainerPage1 or InventoryType.RetainerPage2
-                    or InventoryType.RetainerPage3 or InventoryType.RetainerPage4 or InventoryType.RetainerPage5
-                    or InventoryType.RetainerPage6 or InventoryType.RetainerPage7 or InventoryType.RetainerMarket
-                    or InventoryType.RetainerGil or InventoryType.RetainerEquippedItems
-                    or InventoryType.RetainerCrystals);
-        }
-
         private void CharacterMonitorOnOnCharacterUpdated(Character? character)
         {
             if (character == null)
@@ -417,25 +404,14 @@ namespace CriticalCommonLib.Services
 
         public event BagsChangedDelegate? BagsChanged;
 
-        public delegate void ContainerInfoReceivedDelegate(ContainerInfo containerInfo, InventoryType inventoryType);
-
-        public event ContainerInfoReceivedDelegate? ContainerInfoReceived;
-
-        private unsafe delegate void* ContainerInfoNetworkData(int a2, int* a3);
-
         private unsafe delegate void* ItemMarketBoardInfoData(int a2, int* a3);
 
         private unsafe delegate void* NpcSpawnData(int* a1, int a2, int* a3);
-
-        //If the signature for these are ever lost, find the ProcessZonePacketDown signature in Dalamud and then find the relevant function based on the opcode.
-        [Signature("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8B D3 8B CE E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8B D3 8B CE E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8B D3 8B CE E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8D 53 10 ", DetourName = nameof(ContainerInfoDetour), UseFlags = SignatureUseFlags.Hook)]
-        private Hook<ContainerInfoNetworkData>? _containerInfoNetworkHook = null;
 
         [Signature(
             "E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8B D3 8B CE E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8D 53 10",
             DetourName = nameof(ItemMarketBoardInfoDetour))]
         private Hook<ItemMarketBoardInfoData>? _itemMarketBoardInfoHook = null;
-
         private readonly HashSet<InventoryType> _loadedInventories = new();
         private readonly Dictionary<ulong,uint[]> _cachedRetainerMarketPrices = new Dictionary<ulong, uint[]>();
 
@@ -448,43 +424,6 @@ namespace CriticalCommonLib.Services
             }
 
             return null;
-        }
-
-        private unsafe void* ContainerInfoDetour(int seq, int* a3)
-        {
-            try
-            {
-                if (a3 != null)
-                {
-                    var ptr = (IntPtr)a3 + 16;
-                    var containerInfo = NetworkDecoder.DecodeContainerInfo(ptr);
-                    if (Enum.IsDefined(typeof(InventoryType), containerInfo.containerId))
-                    {
-                        // _framework.RunOnFrameworkThread(() =>
-                        // {
-                        //     _pluginLog.Verbose("Container update " + containerInfo.containerId.ToString());
-                        // });
-                        var inventoryType = (InventoryType)containerInfo.containerId;
-                        //Delay just in case the items haven't loaded.
-                        _framework.RunOnTick(() =>
-                            {
-                                _loadedInventories.Add(inventoryType);
-                                ContainerInfoReceived?.Invoke(containerInfo, inventoryType);
-                            },
-                            TimeSpan.FromMilliseconds(100));
-                        ;
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                _framework.RunOnFrameworkThread(() =>
-                {
-                    _pluginLog.Error(e, "shits broke yo");
-                });
-            }
-
-            return _containerInfoNetworkHook!.Original(seq, a3);
         }
 
         private unsafe void* ItemMarketBoardInfoDetour(int seq, int* a3)
@@ -1813,11 +1752,8 @@ namespace CriticalCommonLib.Services
                 _pluginLog.Verbose("Disposing {type} ({this})", GetType().Name, this);
                 _running = false;
                 _framework.Update -= FrameworkOnUpdate;
-                _containerInfoNetworkHook?.Dispose();
                 _itemMarketBoardInfoHook?.Dispose();
-                _containerInfoNetworkHook = null;
                 _itemMarketBoardInfoHook = null;
-                _characterMonitor.OnActiveRetainerChanged -= CharacterMonitorOnOnActiveRetainerChanged;
                 _characterMonitor.OnCharacterUpdated -= CharacterMonitorOnOnCharacterUpdated;
                 _characterMonitor.OnActiveFreeCompanyChanged -= CharacterMonitorOnOnActiveFreeCompanyChanged;
                 _characterMonitor.OnActiveHouseChanged -= CharacterMonitorOnOnActiveHouseChanged;

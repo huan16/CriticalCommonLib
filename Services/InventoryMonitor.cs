@@ -31,7 +31,13 @@ namespace CriticalCommonLib.Services
         private readonly IPluginLog _pluginLog;
         private readonly Inventory.Factory _inventoryFactory;
 
-        public InventoryMonitor(ICharacterMonitor monitor, ICraftMonitor craftMonitor, IInventoryScanner scanner, IFramework frameworkService, IPluginLog pluginLog, Inventory.Factory inventoryFactory)
+        public InventoryMonitor(
+            ICharacterMonitor monitor, 
+            ICraftMonitor craftMonitor, 
+            IInventoryScanner scanner, 
+            IFramework frameworkService, 
+            IPluginLog pluginLog, 
+            Inventory.Factory inventoryFactory)
         {
             _characterMonitor = monitor;
             _craftMonitor = craftMonitor;
