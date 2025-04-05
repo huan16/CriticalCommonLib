@@ -64,7 +64,11 @@
       <PackageReference Include="SQLitePCLRaw.provider.e_sqlite3" Version="2.1.11" />
       <PackageReference Include="System.Reactive" Version="5.0.0" />
     </ItemGroup>
-
+  
+    <ItemGroup>
+        <ProjectReference Include="..\ECommons\ECommons\ECommons.csproj" />
+    </ItemGroup>
+  
     <PropertyGroup>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     </PropertyGroup>
