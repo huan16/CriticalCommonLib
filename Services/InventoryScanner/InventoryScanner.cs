@@ -109,7 +109,6 @@ namespace CriticalCommonLib.Services
             _framework.RunOnFrameworkThread(() =>
             {
                 _gameInteropProvider.InitializeFromAttributes(this);
-                _itemMarketBoardInfoHook?.Enable();
             });
             framework.Update += FrameworkOnUpdate;
             _gameUiManager.UiVisibilityChanged += GameUiManagerOnUiManagerVisibilityChanged;
@@ -129,72 +128,71 @@ namespace CriticalCommonLib.Services
 
         private unsafe void FrameworkOnUpdate(IFramework framework)
         {
-            // »ñÈ¡¿ò¼ÜµÄ×îºó¸üĞÂÊ±¼ä
+            // è·å–æ¸¸æˆæ¡†æ¶çš„æœ€åæ›´æ–°æ—¶é—´
             var lastUpdate = framework.LastUpdate;
 
-            // µÚÒ»²¿·Ö£º±³°üÉ¨Ãè¹¦ÄÜ
+            // ç¬¬ä¸€éƒ¨åˆ†ï¼šèƒŒåŒ…æ‰«æé€»è¾‘
             if (_nextBagScan == null)
             {
-                // Èç¹ûÎ´ÉèÖÃÏÂ´Î±³°üÉ¨ÃèÊ±¼ä£¬Ôò³õÊ¼»¯Îªµ±Ç°Ê±¼ä
+                // å¦‚æœä¸‹æ¬¡æ‰«ææ—¶é—´ä¸ºç©ºï¼Œåˆ™è®¾ç½®ä¸ºå½“å‰æ—¶é—´
                 _nextBagScan = DateTime.Now;
             }
             if (_nextBagScan != null && _nextBagScan.Value <= lastUpdate)
             {
-                // µ±´ïµ½Ô¤¶¨µÄÉ¨ÃèÊ±¼ä£¬ÖØÖÃ¼ÆÊ±Æ÷²¢Ö´ĞĞ±³°ü½âÎö
+                // å½“åˆ°è¾¾é¢„å®šæ‰«ææ—¶é—´æ—¶ï¼Œé‡ç½®æ‰«ææ—¶é—´å¹¶æ‰§è¡ŒèƒŒåŒ…è§£æ
                 _nextBagScan = null;
-                ParseBags(); // Ö´ĞĞ±³°üÄÚÈİ½âÎö
+                ParseBags(); // æ‰§è¡ŒèƒŒåŒ…è§£ææ“ä½œ
             }
 
-            // µÚ¶ş²¿·Ö£º×¡Õ¬ÎïÆ·´æ´¢¿â´æ¹ÜÀí
+            // ç¬¬äºŒéƒ¨åˆ†ï¼šä½å®…ç‰©å“å­˜å‚¨æ£€æŸ¥é€»è¾‘
             if (_loadedInventories.Contains(InventoryType.HousingExteriorPlacedItems))
             {
                 if (_lastStorageCheck == null)
                 {
-                    // ³õÊ¼»¯ÉÏ´Î´æ´¢¼ì²éÊ±¼ä
+                    // åˆå§‹åŒ–ä¸Šæ¬¡å­˜å‚¨æ£€æŸ¥æ—¶é—´
                     _lastStorageCheck = lastUpdate;
                     return;
                 }
 
-                // ¼ì²éÊÇ·ñÒÑ¾­¹ıÈ¥ÖÁÉÙ200ºÁÃë
+                // æ£€æŸ¥æ˜¯å¦å·²ç»è¶…è¿‡200æ¯«ç§’
                 if (_lastStorageCheck != null && _lastStorageCheck.Value.AddMilliseconds(200) <= lastUpdate)
                 {
-                    // ³¢ÊÔ»ñÈ¡×¡Õ¬ÎïÆ·´°¿Ú
+                    // å°è¯•è·å–ä½å®…ç‰©å“çª—å£
                     var atkUnitBase = _gameUiManager.GetWindow(WindowName.HousingGoods.ToString());
                     if (atkUnitBase == null)
                     {
-                        // Èç¹û´°¿Ú²»´æÔÚ£¬´ÓÒÑ¼ÓÔØ¿â´æÖĞÒÆ³ı×¡Õ¬Íâ²¿´æ´¢ÊÒ
+                        // å¦‚æœçª—å£ä¸å­˜åœ¨ï¼Œåˆ™ç§»é™¤ä½å®…å¤–éƒ¨å‚¨è—å®¤
                         _loadedInventories.Remove(InventoryType.HousingExteriorStoreroom);
                         return;
                     }
 
-                    // ½«´°¿Ú×ª»»Îª×¡Õ¬ÎïÆ·²å¼şÖ¸Õë
+                    // å°è¯•è½¬æ¢ä¸ºä½å®…ç‰©å“çª—å£æŒ‡é’ˆ
                     var housingGoodsAddon = (AddonHousingGoods*)atkUnitBase;
                     if (housingGoodsAddon == null)
                     {
-                        // Èç¹û×ª»»Ê§°Ü£¬´ÓÒÑ¼ÓÔØ¿â´æÖĞÒÆ³ı×¡Õ¬Íâ²¿´æ´¢ÊÒ
+                        // è½¬æ¢å¤±è´¥ï¼Œç§»é™¤ä½å®…å¤–éƒ¨å‚¨è—å®¤
                         _loadedInventories.Remove(InventoryType.HousingExteriorStoreroom);
                         return;
                     }
 
-                    // ¼ì²éµ±Ç°±êÇ©Ò³ÊÇ·ñÎª´æ´¢ÊÒ±êÇ©Ò³(Ë÷Òı1)
+                    // æ£€æŸ¥å½“å‰æ ‡ç­¾é¡µæ˜¯å¦ä¸ºå­˜å‚¨é¡µ(æ ‡ç­¾é¡µ1)
                     if (housingGoodsAddon->CurrentTab != 1)
                     {
-                        // Èç¹û²»ÊÇ´æ´¢ÊÒ±êÇ©Ò³£¬´ÓÒÑ¼ÓÔØ¿â´æÖĞÒÆ³ı×¡Õ¬Íâ²¿´æ´¢ÊÒ
+                        // å¦‚æœä¸æ˜¯å­˜å‚¨é¡µï¼Œç§»é™¤ä½å®…å¤–éƒ¨å‚¨è—å®¤
                         _loadedInventories.Remove(InventoryType.HousingExteriorStoreroom);
                         return;
                     }
 
-                    // ËùÓĞÌõ¼şÂú×ã£¬½«×¡Õ¬Íâ²¿´æ´¢ÊÒÌí¼Óµ½ÒÑ¼ÓÔØ¿â´æÖĞ
+                    // æ‰€æœ‰æ£€æŸ¥é€šè¿‡ï¼Œæ·»åŠ ä½å®…å¤–éƒ¨å‚¨è—å®¤åˆ°å·²åŠ è½½åº“å­˜
                     _loadedInventories.Add(InventoryType.HousingExteriorStoreroom);
                 }
             }
             else
             {
-                // Èç¹ûÎ´¼ÓÔØ×¡Õ¬Íâ²¿ÒÑ·ÅÖÃÎïÆ·µÄ¿â´æ£¬È·±£×¡Õ¬Íâ²¿´æ´¢ÊÒÒ²±»ÒÆ³ı
+                // å¦‚æœä½å®…ç‰©å“ä¸åœ¨å·²åŠ è½½åº“å­˜ä¸­ï¼Œç¡®ä¿ä½å®…å¤–éƒ¨å‚¨è—å®¤ä¹Ÿè¢«ç§»é™¤
                 _loadedInventories.Remove(InventoryType.HousingExteriorStoreroom);
             }
         }
-
 
         private void CharacterMonitorOnOnActiveHouseChanged(ulong houseid, sbyte wardid, sbyte plotid, byte divisionid, short roomid, bool hashousepermission)
         {
@@ -404,60 +402,9 @@ namespace CriticalCommonLib.Services
 
         public event BagsChangedDelegate? BagsChanged;
 
-        private unsafe delegate void* ItemMarketBoardInfoData(int a2, int* a3);
-
         private unsafe delegate void* NpcSpawnData(int* a1, int a2, int* a3);
 
-        [Signature(
-            "E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8B D3 8B CE E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8D 53 10",
-            DetourName = nameof(ItemMarketBoardInfoDetour))]
-        private Hook<ItemMarketBoardInfoData>? _itemMarketBoardInfoHook = null;
         private readonly HashSet<InventoryType> _loadedInventories = new();
-        private readonly Dictionary<ulong,uint[]> _cachedRetainerMarketPrices = new Dictionary<ulong, uint[]>();
-
-
-        private uint[]? GetCachedMarketPrice(ulong retainerId)
-        {
-            if (_cachedRetainerMarketPrices.ContainsKey(retainerId))
-            {
-                return _cachedRetainerMarketPrices[retainerId];
-            }
-
-            return null;
-        }
-
-        private unsafe void* ItemMarketBoardInfoDetour(int seq, int* a3)
-        {
-            try
-            {
-                if (a3 != null)
-                {
-                    var ptr = (IntPtr)a3 + 16;
-                    var containerInfo = NetworkDecoder.DecodeItemMarketBoardInfo(ptr);
-                    var currentRetainer = _characterMonitor.ActiveRetainerId;
-                    if (currentRetainer != 0)
-                    {
-                        if (!_cachedRetainerMarketPrices.ContainsKey(currentRetainer))
-                        {
-                            _cachedRetainerMarketPrices[currentRetainer] = new uint[20];
-                        }
-
-                        if (Enum.IsDefined(typeof(InventoryType), containerInfo.containerId) &&
-                            containerInfo.containerId != 0)
-                        {
-                            _cachedRetainerMarketPrices[currentRetainer][containerInfo.slot] = containerInfo.unitPrice;
-                        }
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                _pluginLog.Error(e, "shits broke yo");
-            }
-
-
-            return _itemMarketBoardInfoHook!.Original(seq, a3);
-        }
 
         public void ParseBags()
         {
@@ -476,7 +423,6 @@ namespace CriticalCommonLib.Services
 
                     if (inventorySortOrder != null)
                     {
-                        _pluginLog.Debug("Start scanning character, saddle, premium saddle, armoury and retainer bags");
                         ParseCharacterBags(inventorySortOrder, changeSet);
                         ParseSaddleBags(inventorySortOrder, changeSet);
                         ParsePremiumSaddleBags(inventorySortOrder, changeSet);
@@ -765,7 +711,6 @@ namespace CriticalCommonLib.Services
 
         public HashSet<InventoryType> LoadedInventories => _loadedInventories;
         public HashSet<InventoryType> InMemory { get; } = new();
-        public Dictionary<ulong, HashSet<InventoryType>> InMemoryRetainers { get; } = new();
         public Dictionary<ulong, HashSet<InventoryType>> InMemoryFreeCompanies { get; } = new();
         public InventoryItem[] CharacterBag1 { get; } = new InventoryItem[35];
         public InventoryItem[] CharacterBag2 { get; } = new InventoryItem[35];
@@ -829,16 +774,17 @@ namespace CriticalCommonLib.Services
         public InventoryItem[] Armoire { get; } = Array.Empty<InventoryItem>();
         public InventoryItem[] GlamourChest { get; } = new InventoryItem[800];
 
-        public Dictionary<ulong, InventoryItem[]> RetainerBag1 { get; } = new();
-        public Dictionary<ulong, InventoryItem[]> RetainerBag2 { get; } = new();
-        public Dictionary<ulong, InventoryItem[]> RetainerBag3 { get; } = new();
-        public Dictionary<ulong, InventoryItem[]> RetainerBag4 { get; } = new();
-        public Dictionary<ulong, InventoryItem[]> RetainerBag5 { get; } = new();
-        public Dictionary<ulong, InventoryItem[]> RetainerEquipped { get; } = new();
-        public Dictionary<ulong, InventoryItem[]> RetainerMarket { get; } = new();
-        public Dictionary<ulong, InventoryItem[]> RetainerCrystals { get; } = new();
-        public Dictionary<ulong, InventoryItem[]> RetainerGil { get; } = new();
-        public Dictionary<ulong, uint[]> RetainerMarketPrices { get; } = new();
+        public Dictionary<ulong, HashSet<InventoryType>> InMemoryRetainers => _retainerInventoryScanner.InMemoryRetainers;
+        public Dictionary<ulong, InventoryItem[]> RetainerBag1 => _retainerInventoryScanner.RetainerBag1;
+        public Dictionary<ulong, InventoryItem[]> RetainerBag2 => _retainerInventoryScanner.RetainerBag2;
+        public Dictionary<ulong, InventoryItem[]> RetainerBag3 => _retainerInventoryScanner.RetainerBag3;
+        public Dictionary<ulong, InventoryItem[]> RetainerBag4 => _retainerInventoryScanner.RetainerBag4;
+        public Dictionary<ulong, InventoryItem[]> RetainerBag5 => _retainerInventoryScanner.RetainerBag5;
+        public Dictionary<ulong, InventoryItem[]> RetainerEquipped => _retainerInventoryScanner.RetainerEquipped;
+        public Dictionary<ulong, InventoryItem[]> RetainerMarket => _retainerInventoryScanner.RetainerMarket;
+        public Dictionary<ulong, InventoryItem[]> RetainerCrystals => _retainerInventoryScanner.RetainerCrystals;
+        public Dictionary<ulong, InventoryItem[]> RetainerGil => _retainerInventoryScanner.RetainerGil;
+        public Dictionary<ulong, uint[]> RetainerMarketPrices => _retainerInventoryScanner.RetainerMarketPrices;
 
         public Dictionary<byte, uint[]> GearSets { get; } = new();
         public bool[] GearSetsUsed { get; } = new bool[100];
@@ -1752,8 +1698,7 @@ namespace CriticalCommonLib.Services
                 _pluginLog.Verbose("Disposing {type} ({this})", GetType().Name, this);
                 _running = false;
                 _framework.Update -= FrameworkOnUpdate;
-                _itemMarketBoardInfoHook?.Dispose();
-                _itemMarketBoardInfoHook = null;
+
                 _characterMonitor.OnCharacterUpdated -= CharacterMonitorOnOnCharacterUpdated;
                 _characterMonitor.OnActiveFreeCompanyChanged -= CharacterMonitorOnOnActiveFreeCompanyChanged;
                 _characterMonitor.OnActiveHouseChanged -= CharacterMonitorOnOnActiveHouseChanged;
