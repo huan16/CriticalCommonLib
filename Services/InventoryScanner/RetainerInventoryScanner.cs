@@ -12,42 +12,37 @@ using InventoryItem = FFXIVClientStructs.FFXIV.Client.Game.InventoryItem;
 namespace CriticalCommonLib.Services.SubInventoryScanner;
 
 /// <summary>
-/// ¹ÍÔ±ÎïÆ·À¸É¨ÃèÆ÷£¬ÓÃÓÚÉ¨ÃèºÍ¹ÜÀíÓÎÏ·ÖĞ¹ÍÔ±µÄÎïÆ·À¸ÄÚÈİ
+/// é›‡å‘˜ç‰©å“æ æ‰«æå™¨ï¼Œç”¨äºæ‰«æå’Œç®¡ç†æ¸¸æˆä¸­é›‡å‘˜çš„ç‰©å“æ å†…å®¹
 /// </summary>
 public class RetainerInventoryScanner : IDisposable
 {
-    // ½ÇÉ«¼àÊÓÆ÷£¬ÓÃÓÚ»ñÈ¡µ±Ç°»î¶¯µÄ¹ÍÔ±ID
+    // è§’è‰²ç›‘è§†å™¨ï¼Œç”¨äºè·å–å½“å‰æ´»åŠ¨çš„é›‡å‘˜ID
     private readonly ICharacterMonitor _characterMonitor;
-    // ³öÊÛÉÌÆ·Ë³Ğò·şÎñ£¬ÓÃÓÚ´¦Àí¹ÍÔ±³öÊÛÉÌÆ·µÄË³Ğò
+    // å‡ºå”®å•†å“é¡ºåºæœåŠ¡ï¼Œç”¨äºå¤„ç†é›‡å‘˜å‡ºå”®å•†å“çš„é¡ºåº
     private readonly IMarketOrderService _marketOrderService;
     private readonly ContainerInfoHook _containerInfoHook;
 
-    // ÒÑ¼ÓÔØµÄÎïÆ·À¸ÀàĞÍ¼¯ºÏ
     private readonly HashSet<InventoryType> _loadedInventories = new();
-    // ²å¼şÈÕÖ¾·şÎñ
+    // æ’ä»¶æ—¥å¿—æœåŠ¡
     private readonly IPluginLog _pluginLog;
-    
-    // »º´æ¹ÍÔ±ÊĞ³¡ÎïÆ·¼Û¸ñµÄ×Öµä£¬¼üÎª¹ÍÔ±ID£¬ÖµÎª¼Û¸ñÊı×é
-    private readonly Dictionary<ulong,uint[]> _cachedRetainerMarketPrices = new Dictionary<ulong, uint[]>();
-
     private bool isDisposed = false;
 
-    // ÄÚ´æÖĞµÄ¹ÍÔ±¼°ÆäÒÑ¼ÓÔØµÄÎïÆ·À¸ÀàĞÍ
+    // å†…å­˜ä¸­çš„é›‡å‘˜åŠå…¶å·²åŠ è½½çš„ç‰©å“æ ç±»å‹
     public Dictionary<ulong, HashSet<InventoryType>> InMemoryRetainers { get; } = new();
-    // ¹ÍÔ±µÄ¸÷ÖÖÎïÆ·À¸ÈİÆ÷£¬¼üÎª¹ÍÔ±ID£¬ÖµÎªÎïÆ·Êı×é
-    public Dictionary<ulong, InventoryItem[]> RetainerBag1 { get; } = new(); // ¹ÍÔ±ÎïÆ·À¸1
-    public Dictionary<ulong, InventoryItem[]> RetainerBag2 { get; } = new(); // ¹ÍÔ±ÎïÆ·À¸2
-    public Dictionary<ulong, InventoryItem[]> RetainerBag3 { get; } = new(); // ¹ÍÔ±ÎïÆ·À¸3
-    public Dictionary<ulong, InventoryItem[]> RetainerBag4 { get; } = new(); // ¹ÍÔ±ÎïÆ·À¸4
-    public Dictionary<ulong, InventoryItem[]> RetainerBag5 { get; } = new(); // ¹ÍÔ±ÎïÆ·À¸5
-    public Dictionary<ulong, InventoryItem[]> RetainerEquipped { get; } = new(); // ¹ÍÔ±×°±¸À¸
-    public Dictionary<ulong, InventoryItem[]> RetainerMarket { get; } = new(); // ¹ÍÔ±ÊĞ³¡³öÊÛÎïÆ·À¸
-    public Dictionary<ulong, InventoryItem[]> RetainerCrystals { get; } = new(); // ¹ÍÔ±Ë®¾§À¸
-    public Dictionary<ulong, InventoryItem[]> RetainerGil { get; } = new(); // ¹ÍÔ±½ğ±ÒÀ¸
-    public Dictionary<ulong, uint[]> RetainerMarketPrices { get; } = new(); // ¹ÍÔ±ÊĞ³¡ÎïÆ·¼Û¸ñ
+    // é›‡å‘˜çš„å„ç§ç‰©å“æ å®¹å™¨ï¼Œé”®ä¸ºé›‡å‘˜IDï¼Œå€¼ä¸ºç‰©å“æ•°ç»„
+    public Dictionary<ulong, InventoryItem[]> RetainerBag1 { get; } = new(); // é›‡å‘˜ç‰©å“æ 1
+    public Dictionary<ulong, InventoryItem[]> RetainerBag2 { get; } = new(); // é›‡å‘˜ç‰©å“æ 2
+    public Dictionary<ulong, InventoryItem[]> RetainerBag3 { get; } = new(); // é›‡å‘˜ç‰©å“æ 3
+    public Dictionary<ulong, InventoryItem[]> RetainerBag4 { get; } = new(); // é›‡å‘˜ç‰©å“æ 4
+    public Dictionary<ulong, InventoryItem[]> RetainerBag5 { get; } = new(); // é›‡å‘˜ç‰©å“æ 5
+    public Dictionary<ulong, InventoryItem[]> RetainerEquipped { get; } = new(); // é›‡å‘˜è£…å¤‡æ 
+    public Dictionary<ulong, InventoryItem[]> RetainerMarket { get; } = new(); // é›‡å‘˜å¸‚åœºå‡ºå”®ç‰©å“æ 
+    public Dictionary<ulong, InventoryItem[]> RetainerCrystals { get; } = new(); // é›‡å‘˜æ°´æ™¶æ 
+    public Dictionary<ulong, InventoryItem[]> RetainerGil { get; } = new(); // é›‡å‘˜é‡‘å¸æ 
+    public Dictionary<ulong, uint[]> RetainerMarketPrices { get; } = new(); // é›‡å‘˜å¸‚åœºç‰©å“ä»·æ ¼
 
     /// <summary>
-    /// ¹¹Ôìº¯Êı£¬³õÊ¼»¯¹ÍÔ±ÎïÆ·À¸É¨ÃèÆ÷
+    /// æ„é€ å‡½æ•°ï¼Œåˆå§‹åŒ–é›‡å‘˜ç‰©å“æ æ‰«æå™¨
     /// </summary>
     public RetainerInventoryScanner(
         ICharacterMonitor characterMonitor, 
@@ -60,11 +55,11 @@ public class RetainerInventoryScanner : IDisposable
         _pluginLog = pluginLog;
         _containerInfoHook = containerInfoHook;
 
-        // ×¢²áÊÂ¼ş
+        // æ³¨å†Œäº‹ä»¶
         _containerInfoHook.ContainerInfoReceived += OnContainerInfoReceived;
         _characterMonitor.OnActiveRetainerChanged += CharacterMonitorOnOnActiveRetainerChanged;
 
-        // ³õÊ¼»¯ÎïÆ·À¸ÀàĞÍµ½¶ÔÓ¦×ÖµäµÄÓ³Éä
+        // åˆå§‹åŒ–ç‰©å“æ ç±»å‹åˆ°å¯¹åº”å­—å…¸çš„æ˜ å°„
         _inventoryMap = new Dictionary<InventoryType, Dictionary<ulong, InventoryItem[]>>()
         {
             { InventoryType.RetainerPage1, RetainerBag1 },
@@ -93,7 +88,7 @@ public class RetainerInventoryScanner : IDisposable
     }
     
     /// <summary>
-    /// »ñÈ¡Ö¸¶¨ÀàĞÍµÄÎïÆ·À¸ÈİÆ÷
+    /// è·å–æŒ‡å®šç±»å‹çš„ç‰©å“æ å®¹å™¨
     /// </summary>
     private unsafe InventoryContainer* GetInventoryContainer(InventoryType type)
     {
@@ -101,25 +96,25 @@ public class RetainerInventoryScanner : IDisposable
     }
 
     /// <summary>
-    /// ÎªÖ¸¶¨¹ÍÔ±³õÊ¼»¯ËùÓĞÎïÆ·À¸ÈİÆ÷
+    /// ä¸ºæŒ‡å®šé›‡å‘˜åˆå§‹åŒ–æ‰€æœ‰ç‰©å“æ å®¹å™¨
     /// </summary>
     private void InitializeContainers(ulong retainerId)
     {
-        // ¶¨Òå¸÷¸öÈİÆ÷¼°Æä´óĞ¡
+        // å®šä¹‰å„ä¸ªå®¹å™¨åŠå…¶å¤§å°
         var containers = new Dictionary<Dictionary<ulong, InventoryItem[]>, int>
         {
-            { RetainerBag1, 35 },    // ¹ÍÔ±ÎïÆ·À¸1£¬35¸ñ
-            { RetainerBag2, 35 },    // ¹ÍÔ±ÎïÆ·À¸2£¬35¸ñ
-            { RetainerBag3, 35 },    // ¹ÍÔ±ÎïÆ·À¸3£¬35¸ñ
-            { RetainerBag4, 35 },    // ¹ÍÔ±ÎïÆ·À¸4£¬35¸ñ
-            { RetainerBag5, 35 },    // ¹ÍÔ±ÎïÆ·À¸5£¬35¸ñ
-            { RetainerEquipped, 14 }, // ¹ÍÔ±×°±¸À¸£¬14¸ñ
-            { RetainerMarket, 20 },   // ¹ÍÔ±ÊĞ³¡³öÊÛÎïÆ·À¸£¬20¸ñ
-            { RetainerGil, 1 },       // ¹ÍÔ±½ğ±ÒÀ¸£¬1¸ñ
-            { RetainerCrystals, 18 }  // ¹ÍÔ±Ë®¾§À¸£¬18¸ñ
+            { RetainerBag1, 35 },    // é›‡å‘˜ç‰©å“æ 1ï¼Œ35æ ¼
+            { RetainerBag2, 35 },    // é›‡å‘˜ç‰©å“æ 2ï¼Œ35æ ¼
+            { RetainerBag3, 35 },    // é›‡å‘˜ç‰©å“æ 3ï¼Œ35æ ¼
+            { RetainerBag4, 35 },    // é›‡å‘˜ç‰©å“æ 4ï¼Œ35æ ¼
+            { RetainerBag5, 35 },    // é›‡å‘˜ç‰©å“æ 5ï¼Œ35æ ¼
+            { RetainerEquipped, 14 }, // é›‡å‘˜è£…å¤‡æ ï¼Œ14æ ¼
+            { RetainerMarket, 20 },   // é›‡å‘˜å¸‚åœºå‡ºå”®ç‰©å“æ ï¼Œ20æ ¼
+            { RetainerGil, 1 },       // é›‡å‘˜é‡‘å¸æ ï¼Œ1æ ¼
+            { RetainerCrystals, 18 }  // é›‡å‘˜æ°´æ™¶æ ï¼Œ18æ ¼
         };
         
-        // ÎªÃ¿¸öÈİÆ÷³õÊ¼»¯¶ÔÓ¦¹ÍÔ±µÄÎïÆ·Êı×é
+        // ä¸ºæ¯ä¸ªå®¹å™¨åˆå§‹åŒ–å¯¹åº”é›‡å‘˜çš„ç‰©å“æ•°ç»„
         foreach (var container in containers)
         {
             if (!container.Key.ContainsKey(retainerId))
@@ -127,11 +122,11 @@ public class RetainerInventoryScanner : IDisposable
         }
     }
 
-    // ÎïÆ·À¸ÀàĞÍµ½¶ÔÓ¦×ÖµäµÄÓ³Éä
+    // ç‰©å“æ ç±»å‹åˆ°å¯¹åº”å­—å…¸çš„æ˜ å°„
     private readonly Dictionary<InventoryType, Dictionary<ulong, InventoryItem[]>> _inventoryMap;
 
     /// <summary>
-    /// ¸ù¾İ¹ÍÔ±IDºÍÎïÆ·À¸ÀàĞÍ»ñÈ¡ÎïÆ·Êı×é
+    /// æ ¹æ®é›‡å‘˜IDå’Œç‰©å“æ ç±»å‹è·å–ç‰©å“æ•°ç»„
     /// </summary>
     public InventoryItem[] GetInventoryByType(ulong retainerId, InventoryType type)
     {
@@ -141,7 +136,7 @@ public class RetainerInventoryScanner : IDisposable
     }
 
     /// <summary>
-    /// ´¦ÀíÎïÆ·À¸ÏîÄ¿²¢¼ÇÂ¼±ä¸ü
+    /// å¤„ç†ç‰©å“æ é¡¹ç›®å¹¶è®°å½•å˜æ›´
     /// </summary>
     private static unsafe void ProcessInventoryItems(InventoryContainer* container, InventoryItem[] targetArray, 
         InventoryType inventoryType, BagChangeContainer changeSet)
@@ -150,23 +145,23 @@ public class RetainerInventoryScanner : IDisposable
         {
             var item = container->Items[i];
             
-            item.Slot = (short)i; // ÉèÖÃÎïÆ·µÄ²ÛÎ»Ë÷Òı
-            if (!item.IsSame(targetArray[i])) // Èç¹ûÎïÆ··¢Éú±ä»¯
+            item.Slot = (short)i; // è®¾ç½®ç‰©å“çš„æ§½ä½ç´¢å¼•
+            if (!item.IsSame(targetArray[i])) // å¦‚æœç‰©å“å‘ç”Ÿå˜åŒ–
             {
-                targetArray[i] = item; // ¸üĞÂÄ¿±êÊı×éÖĞµÄÎïÆ·
-                changeSet.Add(new BagChange(item, inventoryType)); // ¼ÇÂ¼±ä¸ü
+                targetArray[i] = item; // æ›´æ–°ç›®æ ‡æ•°ç»„ä¸­çš„ç‰©å“
+                changeSet.Add(new BagChange(item, inventoryType)); // è®°å½•å˜æ›´
             }
         }
     }
 
     /// <summary>
-    /// ½âÎö¹ÍÔ±µÄËùÓĞÎïÆ·À¸£¬ÕâÊÇºËĞÄ·½·¨
+    /// è§£æé›‡å‘˜çš„æ‰€æœ‰ç‰©å“æ ï¼Œè¿™æ˜¯æ ¸å¿ƒæ–¹æ³•
     /// </summary>
     public unsafe void ParseRetainerBags(InventorySortOrder currentSortOrder, BagChangeContainer changeSet)
     {
-        // »ñÈ¡µ±Ç°»î¶¯µÄ¹ÍÔ±ID
+        // è·å–å½“å‰æ´»åŠ¨çš„é›‡å‘˜ID
         var activeRetainerId = _characterMonitor.ActiveRetainerId;
-        // ĞèÒª¼ÓÔØµÄÎïÆ·À¸ÀàĞÍ
+        // éœ€è¦åŠ è½½çš„ç‰©å“æ ç±»å‹
         var requiredInventories = new[]
         {
             InventoryType.RetainerPage1,
@@ -182,7 +177,7 @@ public class RetainerInventoryScanner : IDisposable
             InventoryType.RetainerMarket
         };
         
-        // ¼ì²éÊÇ·ñÓĞ»î¶¯¹ÍÔ±
+        // æ£€æŸ¥æ˜¯å¦æœ‰æ´»åŠ¨é›‡å‘˜
         bool noCurrentRetainer = activeRetainerId == 0;
         if (noCurrentRetainer)
         {
@@ -190,31 +185,31 @@ public class RetainerInventoryScanner : IDisposable
             return;
         }
 
-        // ¼ì²éËùÓĞ±ØĞèµÄÎïÆ·À¸ÀàĞÍÊÇ·ñ¶¼ÒÑ¼ÓÔØ
-        // var notLoadedInventories = requiredInventories.Where(inv => !_loadedInventories.Contains(inv)).ToList();
-        // bool notAllInventoriesLoaded = notLoadedInventories.Any();
-        // if (notAllInventoriesLoaded)
-        // {
-        //     _pluginLog.Verbose($"Parsed retainer bags failed: unloaded inventories {string.Join(", ", notLoadedInventories)}");
-        //     return;
-        // }
+        // é€šè¿‡ç½‘ç»œèƒŒåŒ…æ•°æ®åˆ¤æ–­Inventoryä¿¡æ¯æ˜¯å¦å·²åˆ·æ–°
+        var notLoadedInventories = requiredInventories.Where(inv => !_loadedInventories.Contains(inv)).ToList();
+        bool notAllInventoriesLoaded = notLoadedInventories.Any();
+        if (notAllInventoriesLoaded)
+        {
+            _pluginLog.Verbose($"Parsed retainer bags failed: unloaded inventories {string.Join(", ", notLoadedInventories)}");
+            return;
+        }
 
-        // Èç¹û¹ÍÔ±²»ÔÚÄÚ´æÖĞ£¬ÔòÌí¼Ó
+        // å¦‚æœé›‡å‘˜ä¸åœ¨å†…å­˜ä¸­ï¼Œåˆ™æ·»åŠ 
         if (!InMemoryRetainers.ContainsKey(activeRetainerId))
         {
             InMemoryRetainers.Add(activeRetainerId, new HashSet<InventoryType>());
         }
             
-        // ½«ËùÓĞ±ØĞèµÄÎïÆ·À¸ÀàĞÍÌí¼Óµ½¹ÍÔ±µÄÒÑ¼ÓÔØÀàĞÍ¼¯ºÏÖĞ
+        // å°†æ‰€æœ‰å¿…éœ€çš„ç‰©å“æ ç±»å‹æ·»åŠ åˆ°é›‡å‘˜çš„å·²åŠ è½½ç±»å‹é›†åˆä¸­
         foreach (var type in requiredInventories)
         {
             InMemoryRetainers[activeRetainerId].Add(type);
         }
 
-        // ³õÊ¼»¯¹ÍÔ±µÄËùÓĞÎïÆ·À¸ÈİÆ÷
+        // åˆå§‹åŒ–é›‡å‘˜çš„æ‰€æœ‰ç‰©å“æ å®¹å™¨
         InitializeContainers(activeRetainerId);
 
-        // »ñÈ¡¹ÍÔ±µÄ¸÷ÖÖÎïÆ·À¸ÈİÆ÷Ö¸Õë
+        // è·å–é›‡å‘˜çš„å„ç§ç‰©å“æ å®¹å™¨æŒ‡é’ˆ
         var retainerBag1 = GetInventoryContainer(InventoryType.RetainerPage1);
         var retainerBag2 = GetInventoryContainer(InventoryType.RetainerPage2);
         var retainerBag3 = GetInventoryContainer(InventoryType.RetainerPage3);
@@ -227,11 +222,11 @@ public class RetainerInventoryScanner : IDisposable
         var retainerGil = GetInventoryContainer(InventoryType.RetainerGil);
         var retainerCrystal = GetInventoryContainer(InventoryType.RetainerCrystals);
 
-        // ´¦Àí¹ÍÔ±×°±¸À¸ÎïÆ·
+        // å¤„ç†é›‡å‘˜è£…å¤‡æ ç‰©å“
         ProcessInventoryItems(retainerEquippedItems, RetainerEquipped[activeRetainerId], 
             InventoryType.RetainerEquippedItems, changeSet);
         
-        // ´¦Àí¹ÍÔ±½ğ±ÒÀ¸
+        // å¤„ç†é›‡å‘˜é‡‘å¸æ 
         var retainerGilItem = retainerGil->Items[0];
         retainerGilItem.Slot = 0;
         if (!retainerGilItem.IsSame(RetainerGil[activeRetainerId][0]))
@@ -240,16 +235,16 @@ public class RetainerInventoryScanner : IDisposable
             changeSet.Add(new BagChange(retainerGilItem, InventoryType.RetainerGil));
         }
         
-        // ´¦Àí¹ÍÔ±Ë®¾§À¸ÎïÆ·
+        // å¤„ç†é›‡å‘˜æ°´æ™¶æ ç‰©å“
         ProcessInventoryItems(retainerCrystal, RetainerCrystals[activeRetainerId], 
             InventoryType.RetainerCrystals, changeSet);
 
-        // »ñÈ¡µ±Ç°³öÊÛÎïÆ·Ë³Ğò
+        // è·å–å½“å‰å‡ºå”®ç‰©å“é¡ºåº
         var marketOrder = _marketOrderService.GetCurrentOrder();
-        // ´¦Àí¹ÍÔ±ÊĞ³¡³öÊÛÎïÆ·À¸
+        // å¤„ç†é›‡å‘˜å¸‚åœºå‡ºå”®ç‰©å“æ 
         if (marketOrder != null)
         {
-            // ¸ù¾İÊĞ³¡¶©µ¥ÅÅĞòÊĞ³¡ÎïÆ·
+            // æ ¹æ®å¸‚åœºè®¢å•æ’åºå¸‚åœºç‰©å“
             var sortedItems = marketOrder
                 .Where(kv => kv.Key < retainerMarketItems->Size)
                 .OrderBy(kv => kv.Value)
@@ -259,28 +254,19 @@ public class RetainerInventoryScanner : IDisposable
                     item.Slot = (short)kv.Key;
                     return item;
                 });
-                
-            // ´¦ÀíÅÅĞòºóµÄÊĞ³¡ÎïÆ·
-            int i = 0;
-            foreach (var retainerItem in sortedItems)
-            {
-                if (!retainerItem.IsSame(RetainerMarket[activeRetainerId][i]))
-                {
-                    RetainerMarket[activeRetainerId][i] = retainerItem;
-                    changeSet.Add(new BagChange(retainerItem, InventoryType.RetainerMarket));
-                }
-                i++;
-            }
+
+            ProcessInventoryItems(retainerMarketItems, RetainerMarket[activeRetainerId], 
+                InventoryType.RetainerMarket, changeSet);
         }
 
-        // ´¦Àí¹ÍÔ±ÆÕÍ¨ÎïÆ·À¸£¨°´ÅÅĞòË³Ğò£©
+        // å¤„ç†é›‡å‘˜æ™®é€šç‰©å“æ ï¼ˆæŒ‰æ’åºé¡ºåºï¼‰
         var newBags = new InventoryItem[7][];
         for (int i = 0; i < 7; i++)
         {
             newBags[i] = new InventoryItem[25];
         }
 
-        // »ñÈ¡¹ÍÔ±ÎïÆ·À¸µÄÅÅĞòË³Ğò
+        // è·å–é›‡å‘˜ç‰©å“æ çš„æ’åºé¡ºåº
         RetainerSortOrder retainerInventory;
         if (currentSortOrder.RetainerInventories.ContainsKey(activeRetainerId))
         {
@@ -288,22 +274,22 @@ public class RetainerInventoryScanner : IDisposable
         }
         else
         {
-            retainerInventory = RetainerSortOrder.NoOdrOrder; // ÎŞÅÅĞòË³Ğò
+            retainerInventory = RetainerSortOrder.NoOdrOrder; // æ— æ’åºé¡ºåº
         }
 
-        // ¸ù¾İÅÅĞòË³Ğò·Ö×éÎïÆ·
+        // æ ¹æ®æ’åºé¡ºåºåˆ†ç»„ç‰©å“
         var groupedItems = retainerInventory.InventoryCoords
             .Select((sort, index) => new { sort, index })
             .GroupBy(x => x.index / 25)
             .Where(g => g.Key < 7);
 
-        // ´¦ÀíÃ¿¸ö·Ö×éÖĞµÄÎïÆ·
+        // å¤„ç†æ¯ä¸ªåˆ†ç»„ä¸­çš„ç‰©å“
         foreach (var group in groupedItems)
         {
             foreach (var item in group)
             {
                 var sort = item.sort;
-                // ¸ù¾İÈİÆ÷Ë÷Òı»ñÈ¡¶ÔÓ¦µÄÎïÆ·À¸ÈİÆ÷
+                // æ ¹æ®å®¹å™¨ç´¢å¼•è·å–å¯¹åº”çš„ç‰©å“æ å®¹å™¨
                 InventoryContainer* currentBag = sort.containerIndex switch
                 {
                     0 => retainerBag1,
@@ -316,26 +302,26 @@ public class RetainerInventoryScanner : IDisposable
                     _ => null
                 };
 
-                // ¼ì²éÈİÆ÷ºÍ²ÛÎ»ÊÇ·ñÓĞĞ§
+                // æ£€æŸ¥å®¹å™¨å’Œæ§½ä½æ˜¯å¦æœ‰æ•ˆ
                 if (currentBag == null || sort.slotIndex >= currentBag->Size)
                 {
                     _pluginLog.Verbose("bag was too big UwU retainer");
                     continue;
                 }
 
-                // ½«ÎïÆ·Ìí¼Óµ½ĞÂµÄÅÅĞòºóµÄÎïÆ·À¸ÖĞ
+                // å°†ç‰©å“æ·»åŠ åˆ°æ–°çš„æ’åºåçš„ç‰©å“æ ä¸­
                 newBags[group.Key][group.ToList().IndexOf(item)] = currentBag->Items[sort.slotIndex];
             }
         }
 
-        // ¹ÍÔ±µÄÎïÆ·À¸ÀàĞÍÁĞ±í
+        // é›‡å‘˜çš„ç‰©å“æ ç±»å‹åˆ—è¡¨
         var retainerBags = new List<InventoryType>
         {
             InventoryType.RetainerPage1, InventoryType.RetainerPage2, InventoryType.RetainerPage3,
             InventoryType.RetainerPage4, InventoryType.RetainerPage5
         };
 
-        // ´¦ÀíÅÅĞòºóµÄÎïÆ·²¢¸üĞÂÎïÆ·À¸
+        // å¤„ç†æ’åºåçš„ç‰©å“å¹¶æ›´æ–°ç‰©å“æ 
         var absoluteIndex = 0;
         for (int bagIndex = 0; bagIndex < newBags.Length; bagIndex++)
         {
@@ -346,11 +332,11 @@ public class RetainerInventoryScanner : IDisposable
                 var sortedBagIndex = absoluteIndex / 35;
                 if (sortedBagIndex >= 0 && retainerBags.Count > sortedBagIndex)
                 {
-                    // ÉèÖÃÎïÆ·µÄ²ÛÎ»ºÍÈİÆ÷
+                    // è®¾ç½®ç‰©å“çš„æ§½ä½å’Œå®¹å™¨
                     item.Slot = (short)(absoluteIndex - sortedBagIndex * 35);
                     if (retainerBags.Count > sortedBagIndex) item.Container = retainerBags[sortedBagIndex];
 
-                    // »ñÈ¡¶ÔÓ¦µÄÎïÆ·À¸²¢¼ì²éÎïÆ·ÊÇ·ñ·¢Éú±ä»¯
+                    // è·å–å¯¹åº”çš„ç‰©å“æ å¹¶æ£€æŸ¥ç‰©å“æ˜¯å¦å‘ç”Ÿå˜åŒ–
                     var bag = GetInventoryByType(activeRetainerId, retainerBags[sortedBagIndex]);
                     if (!bag[item.Slot].IsSame(item))
                     {
@@ -366,7 +352,7 @@ public class RetainerInventoryScanner : IDisposable
     public void Dispose()
     {
         Dispose(true);
-        GC.SuppressFinalize(true);
+        GC.SuppressFinalize(this);
     }
 
     protected virtual void Dispose(bool isDisposing)
