@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -598,57 +598,68 @@ namespace CriticalCommonLib.Services
             }
         }
 
+        /// <summary>
+        /// 生成雇员的库存信息
+        /// </summary>
+        /// <param name="inventoryChanges">用于记录库存变化的列表</param>
         private unsafe void GenerateRetainerInventories(List<InventoryChange> inventoryChanges)
         {
-            var currentRetainer = _characterMonitor.ActiveRetainerId;
-            HashSet<FFXIVClientStructs.FFXIV.Client.Game.InventoryType> inventoryTypes = new HashSet<FFXIVClientStructs.FFXIV.Client.Game.InventoryType>();
-            inventoryTypes.Add( FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerPage1);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerPage2);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerPage3);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerPage4);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerPage5);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerEquippedItems);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerMarket);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerCrystals);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerGil);
-            if (currentRetainer != 0)
+            var activeRetainerId = _characterMonitor.ActiveRetainerId;
+            HashSet<FFXIVClientStructs.FFXIV.Client.Game.InventoryType> inventoryTypes =
+            [
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerPage1,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerPage2,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerPage3,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerPage4,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerPage5,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerEquippedItems,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerMarket,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerCrystals,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.RetainerGil,
+            ];
+
+            if (activeRetainerId != 0)
             {
-                if (!_inventoryScanner.InMemoryRetainers.ContainsKey(currentRetainer))
+                if (!_inventoryScanner.InMemoryRetainers.ContainsKey(activeRetainerId))
                 {
                     _pluginLog.Debug("Inventory scanner does not have information about this retainer.");
                     return;
                 }
+
                 foreach (var inventoryType in inventoryTypes)
                 {
-                    if (!_inventoryScanner.InMemoryRetainers[currentRetainer].Contains(inventoryType))
+                    if (!_inventoryScanner.InMemoryRetainers[activeRetainerId].Contains(inventoryType))
                     {
                         _pluginLog.Debug("Inventory scanner does not have information about a retainer's " + inventoryType.ToString());
                         return;
                     }
                 }
-                if (!_inventories.ContainsKey(currentRetainer))
+
+                if (!_inventories.ContainsKey(activeRetainerId))
                 {
-                    _inventories[currentRetainer] = _inventoryFactory.Invoke(CharacterType.Retainer, currentRetainer);
+                    _inventories[activeRetainerId] = _inventoryFactory.Invoke(CharacterType.Retainer, activeRetainerId);
                 }
 
-                var inventory = _inventories[currentRetainer];
+                var inventory = _inventories[activeRetainerId];
                 _pluginLog.Debug("Retainer inventory found in scanner, loading into inventory monitor.");
-                foreach (var inventoryType in inventoryTypes)
+
+                try
                 {
-                    var items = _inventoryScanner.GetInventoryByType(currentRetainer,inventoryType);
-                    var inventoryCategory = inventoryType.Convert().ToInventoryCategory();
-                    inventory.LoadGameItems(items, inventoryType.Convert(), inventoryCategory, false, inventoryChanges,
-                        (newItem, index) =>
-                        {
-                            if (index >= 0 && index < _inventoryScanner.RetainerMarketPrices[currentRetainer].Length)
-                            {
-                                if (newItem.ItemId != 0)
-                                {
-                                    newItem.RetainerMarketPrice =
-                                        _inventoryScanner.RetainerMarketPrices[currentRetainer][index];
-                                }
-                            }
-                        });
+                    foreach (var inventoryType in inventoryTypes)
+                    {
+                        _pluginLog.Debug("Loading retainer inventory type: " + inventoryType.ToString());
+
+                        var items = _inventoryScanner.GetInventoryByType(activeRetainerId, inventoryType);
+                        var inventoryCategory = inventoryType.Convert().ToInventoryCategory();
+                        var changesCountBefore = inventoryChanges.Count;
+                        inventory.LoadGameItems(items, inventoryType.Convert(), inventoryCategory, false, inventoryChanges);
+
+                        _pluginLog.Debug($"GetInventoryByType for {inventoryType} returned {items.Length} items. Added {inventoryChanges.Count - changesCountBefore} inventory changes");
+                    }
+                }
+                catch (Exception e)
+                {
+                    _pluginLog.Error("Error loading retainer inventory: " + e.Message);
                 }
             }
         }

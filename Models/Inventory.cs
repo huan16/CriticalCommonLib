@@ -112,7 +112,13 @@ public class Inventory
     /// <param name="inventoryChanges"></param>
     /// <param name="postConvertHook">Allows for a item to be modified after it has been converted, but before it's added to the inventory</param>
     /// <returns></returns>
-    public List<InventoryChange> LoadGameItems(FFXIVClientStructs.FFXIV.Client.Game.InventoryItem[] items, InventoryType sortedType, InventoryCategory sortedCategory, bool initialLoad = false, List<InventoryChange>? inventoryChanges = null, Action<InventoryItem, int>? postConvertHook = null)
+    public List<InventoryChange> LoadGameItems(
+        FFXIVClientStructs.FFXIV.Client.Game.InventoryItem[] items, 
+        InventoryType sortedType, 
+        InventoryCategory sortedCategory, 
+        bool initialLoad = false, 
+        List<InventoryChange>? inventoryChanges = null, 
+        Action<InventoryItem, int>? postConvertHook = null)
     {
         var inventory = GetInventoryByType(sortedType);
         if (inventory == null)
