@@ -143,12 +143,13 @@ public class RetainerInventoryScanner : IDisposable
     /// <summary>
     /// 处理物品栏项目并记录变更
     /// </summary>
-    private unsafe void ProcessInventoryItems(InventoryContainer* container, InventoryItem[] targetArray, 
+    private static unsafe void ProcessInventoryItems(InventoryContainer* container, InventoryItem[] targetArray, 
         InventoryType inventoryType, BagChangeContainer changeSet)
     {
         for (var i = 0; i < container->Size; i++)
         {
             var item = container->Items[i];
+            
             item.Slot = (short)i; // 设置物品的槽位索引
             if (!item.IsSame(targetArray[i])) // 如果物品发生变化
             {
@@ -164,7 +165,7 @@ public class RetainerInventoryScanner : IDisposable
     public unsafe void ParseRetainerBags(InventorySortOrder currentSortOrder, BagChangeContainer changeSet)
     {
         // 获取当前活动的雇员ID
-        var currentRetainer = _characterMonitor.ActiveRetainerId;
+        var activeRetainerId = _characterMonitor.ActiveRetainerId;
         // 需要加载的物品栏类型
         var requiredInventories = new[]
         {
@@ -182,7 +183,7 @@ public class RetainerInventoryScanner : IDisposable
         };
         
         // 检查是否有活动雇员
-        bool noCurrentRetainer = currentRetainer == 0;
+        bool noCurrentRetainer = activeRetainerId == 0;
         if (noCurrentRetainer)
         {
             _pluginLog.Verbose("Parsed retainer bags failed: no active retainer");
@@ -190,31 +191,28 @@ public class RetainerInventoryScanner : IDisposable
         }
 
         // 检查所有必需的物品栏类型是否都已加载
-        var notLoadedInventories = requiredInventories.Where(inv => !_loadedInventories.Contains(inv)).ToList();
-        bool notAllInventoriesLoaded = notLoadedInventories.Any();
-        if (notAllInventoriesLoaded)
-        {
-            _pluginLog.Verbose($"Parsed retainer bags failed: unloaded inventories {string.Join(", ", notLoadedInventories)}");
-            return;
-        }
-
-        // 获取当前市场订单
-        var marketOrder = _marketOrderService.GetCurrentOrder();
+        // var notLoadedInventories = requiredInventories.Where(inv => !_loadedInventories.Contains(inv)).ToList();
+        // bool notAllInventoriesLoaded = notLoadedInventories.Any();
+        // if (notAllInventoriesLoaded)
+        // {
+        //     _pluginLog.Verbose($"Parsed retainer bags failed: unloaded inventories {string.Join(", ", notLoadedInventories)}");
+        //     return;
+        // }
 
         // 如果雇员不在内存中，则添加
-        if (!InMemoryRetainers.ContainsKey(currentRetainer))
+        if (!InMemoryRetainers.ContainsKey(activeRetainerId))
         {
-            InMemoryRetainers.Add(currentRetainer, new HashSet<InventoryType>());
+            InMemoryRetainers.Add(activeRetainerId, new HashSet<InventoryType>());
         }
             
         // 将所有必需的物品栏类型添加到雇员的已加载类型集合中
         foreach (var type in requiredInventories)
         {
-            InMemoryRetainers[currentRetainer].Add(type);
+            InMemoryRetainers[activeRetainerId].Add(type);
         }
 
         // 初始化雇员的所有物品栏容器
-        InitializeContainers(currentRetainer);
+        InitializeContainers(activeRetainerId);
 
         // 获取雇员的各种物品栏容器指针
         var retainerBag1 = GetInventoryContainer(InventoryType.RetainerPage1);
@@ -229,73 +227,49 @@ public class RetainerInventoryScanner : IDisposable
         var retainerGil = GetInventoryContainer(InventoryType.RetainerGil);
         var retainerCrystal = GetInventoryContainer(InventoryType.RetainerCrystals);
 
-        // 获取雇员物品栏的排序顺序
-        RetainerSortOrder retainerInventory;
-        if (currentSortOrder.RetainerInventories.ContainsKey(currentRetainer))
-        {
-            retainerInventory = currentSortOrder.RetainerInventories[currentRetainer];
-        }
-        else
-        {
-            retainerInventory = RetainerSortOrder.NoOdrOrder; // 无排序顺序
-        }
-
         // 处理雇员装备栏物品
-        ProcessInventoryItems(retainerEquippedItems, RetainerEquipped[currentRetainer], 
+        ProcessInventoryItems(retainerEquippedItems, RetainerEquipped[activeRetainerId], 
             InventoryType.RetainerEquippedItems, changeSet);
         
         // 处理雇员金币栏
         var retainerGilItem = retainerGil->Items[0];
         retainerGilItem.Slot = 0;
-        if (!retainerGilItem.IsSame(RetainerGil[currentRetainer][0]))
+        if (!retainerGilItem.IsSame(RetainerGil[activeRetainerId][0]))
         {
-            RetainerGil[currentRetainer][0] = retainerGilItem;
+            RetainerGil[activeRetainerId][0] = retainerGilItem;
             changeSet.Add(new BagChange(retainerGilItem, InventoryType.RetainerGil));
         }
         
         // 处理雇员水晶栏物品
-        ProcessInventoryItems(retainerCrystal, RetainerCrystals[currentRetainer], 
+        ProcessInventoryItems(retainerCrystal, RetainerCrystals[activeRetainerId], 
             InventoryType.RetainerCrystals, changeSet);
 
+        // 获取当前出售物品顺序
+        var marketOrder = _marketOrderService.GetCurrentOrder();
         // 处理雇员市场出售物品栏
-        var retainerMarketCopy = new InventoryItem[20];
-
-        // 根据市场订单排序市场物品
         if (marketOrder != null)
         {
-            retainerMarketCopy = marketOrder
+            // 根据市场订单排序市场物品
+            var sortedItems = marketOrder
                 .Where(kv => kv.Key < retainerMarketItems->Size)
                 .OrderBy(kv => kv.Value)
-                .Select(kv => retainerMarketItems->Items[kv.Key])
-                .ToArray();
-        }
-        else
-        {
-            // 如果没有市场订单，则使用备份排序方法
-            for (var i = 0; i < retainerMarketItems->Size; i++)
-            {
-                retainerMarketCopy[i] = retainerMarketItems->Items[i];
-            }
-            retainerMarketCopy = _marketOrderService.SortByBackupRetainerMarketOrder(retainerMarketCopy.ToList()).ToArray();
-        }
-
-        // 处理排序后的市场物品
-        retainerMarketCopy = retainerMarketCopy.ToArray();
-        for (var i = 0; i < retainerMarketCopy.Length; i++)
-        {
-            var retainerItem = retainerMarketCopy[i];
-            if (_cachedRetainerMarketPrices.ContainsKey(currentRetainer))
-            {
-                var cachedPrice = _cachedRetainerMarketPrices[currentRetainer][retainerItem.Slot];
-                retainerItem.Slot = (short)i;
-                // 如果物品或价格发生变化，则更新并记录变更
-                if (!retainerItem.IsSame(RetainerMarket[currentRetainer][i]) ||
-                    cachedPrice != RetainerMarketPrices[currentRetainer][i])
+                .Select(kv => 
                 {
-                    RetainerMarket[currentRetainer][i] = retainerItem;
-                    RetainerMarketPrices[currentRetainer][i] = cachedPrice;
+                    var item = retainerMarketItems->Items[kv.Key];
+                    item.Slot = (short)kv.Key;
+                    return item;
+                });
+                
+            // 处理排序后的市场物品
+            int i = 0;
+            foreach (var retainerItem in sortedItems)
+            {
+                if (!retainerItem.IsSame(RetainerMarket[activeRetainerId][i]))
+                {
+                    RetainerMarket[activeRetainerId][i] = retainerItem;
                     changeSet.Add(new BagChange(retainerItem, InventoryType.RetainerMarket));
                 }
+                i++;
             }
         }
 
@@ -304,6 +278,17 @@ public class RetainerInventoryScanner : IDisposable
         for (int i = 0; i < 7; i++)
         {
             newBags[i] = new InventoryItem[25];
+        }
+
+        // 获取雇员物品栏的排序顺序
+        RetainerSortOrder retainerInventory;
+        if (currentSortOrder.RetainerInventories.ContainsKey(activeRetainerId))
+        {
+            retainerInventory = currentSortOrder.RetainerInventories[activeRetainerId];
+        }
+        else
+        {
+            retainerInventory = RetainerSortOrder.NoOdrOrder; // 无排序顺序
         }
 
         // 根据排序顺序分组物品
@@ -366,7 +351,7 @@ public class RetainerInventoryScanner : IDisposable
                     if (retainerBags.Count > sortedBagIndex) item.Container = retainerBags[sortedBagIndex];
 
                     // 获取对应的物品栏并检查物品是否发生变化
-                    var bag = GetInventoryByType(currentRetainer, retainerBags[sortedBagIndex]);
+                    var bag = GetInventoryByType(activeRetainerId, retainerBags[sortedBagIndex]);
                     if (!bag[item.Slot].IsSame(item))
                     {
                         bag[item.Slot] = item;
@@ -393,5 +378,7 @@ public class RetainerInventoryScanner : IDisposable
             _containerInfoHook.ContainerInfoReceived -= OnContainerInfoReceived;
             _characterMonitor.OnActiveRetainerChanged -= CharacterMonitorOnOnActiveRetainerChanged;
         }
+
+        isDisposed = true;
     }
 }
