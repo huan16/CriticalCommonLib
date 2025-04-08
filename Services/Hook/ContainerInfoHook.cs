@@ -32,8 +32,6 @@ public class ContainerInfoHook : IDisposable
 
     private unsafe void* ContainerInfoDetour(int seq, int* a3)
     {
-        _pluginLog.Verbose("ContainerInfoDetour called");
-
         try
         {
             if (a3 != null)
