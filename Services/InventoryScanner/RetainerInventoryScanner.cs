@@ -181,7 +181,7 @@ public class RetainerInventoryScanner : IDisposable
         bool noCurrentRetainer = activeRetainerId == 0;
         if (noCurrentRetainer)
         {
-            _pluginLog.Verbose("Parsed retainer bags failed: no active retainer");
+            _pluginLog.Debug("Parsed retainer bags failed: no active retainer");
             return;
         }
 
@@ -190,7 +190,7 @@ public class RetainerInventoryScanner : IDisposable
         bool notAllInventoriesLoaded = notLoadedInventories.Any();
         if (notAllInventoriesLoaded)
         {
-            _pluginLog.Verbose($"Parsed retainer bags failed: unloaded inventories {string.Join(", ", notLoadedInventories)}");
+            _pluginLog.Debug($"Parsed retainer bags failed: unloaded inventories {string.Join(", ", notLoadedInventories)}");
             return;
         }
 
@@ -255,8 +255,11 @@ public class RetainerInventoryScanner : IDisposable
                     return item;
                 });
 
-            ProcessInventoryItems(retainerMarketItems, RetainerMarket[activeRetainerId], 
-                InventoryType.RetainerMarket, changeSet);
+            for (int i = 0; i < sortedItems.Count(); i++)
+            {
+                var item = sortedItems.ElementAt(i);
+                RetainerMarket[activeRetainerId][i] = item;
+            }
         }
 
         // 处理雇员普通物品栏（按排序顺序）
