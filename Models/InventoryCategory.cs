@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using CriticalCommonLib.Enums;
@@ -7,7 +7,6 @@ namespace CriticalCommonLib.Models
 {
     public static class InventoryCategoryExtensions
     {
-        // 直接内联初始化字典，移除静态构造函数
         private static readonly Dictionary<InventoryCategory, List<InventoryType>> CategoryToTypesMap = 
             Enum.GetValues(typeof(InventoryType))
                 .Cast<InventoryType>()
@@ -67,9 +66,7 @@ namespace CriticalCommonLib.Models
 
         public static List<InventoryType> GetTypes(this InventoryCategory category)
         {
-            return CategoryToTypesMap.TryGetValue(category, out var types) 
-                ? types 
-                : new List<InventoryType>();
+            return CategoryToTypesMap.GetValueOrDefault(category, new List<InventoryType>());
         }
 
         public static string GetDisplayName(this InventoryCategory category)

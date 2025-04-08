@@ -31,7 +31,6 @@ namespace CriticalCommonLib.Enums {
 
         static InventoryTypeExtensions()
         {
-            // 修改静态构造函数内的属性获取逻辑（原第38行附近）
             foreach (var type in Enum.GetValues<InventoryType>())
             {
                 var field = typeof(InventoryType).GetField(type.ToString());

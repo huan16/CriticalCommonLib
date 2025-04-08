@@ -64,90 +64,6 @@ namespace CriticalCommonLib.Extensions
             return "不适用";
         }
 
-        public static List<InventoryType> GetTypes(this InventoryCategory category)
-        {
-            switch (category)
-            {
-                case InventoryCategory.CharacterBags:
-                    return new List<InventoryType>()
-                        {InventoryType.Bag0, InventoryType.Bag1, InventoryType.Bag2, InventoryType.Bag3};
-                case InventoryCategory.RetainerBags:
-                    return new List<InventoryType>()
-                        {InventoryType.RetainerBag0, InventoryType.RetainerBag1, InventoryType.RetainerBag2, InventoryType.RetainerBag3, InventoryType.RetainerBag4, InventoryType.RetainerBag5, InventoryType.RetainerBag6};
-                case InventoryCategory.Armoire:
-                    return new List<InventoryType>()
-                        {InventoryType.Armoire};
-                case InventoryCategory.Crystals:
-                    return new List<InventoryType>()
-                        {InventoryType.Crystal,InventoryType.RetainerCrystal, InventoryType.FreeCompanyCrystal};
-                case InventoryCategory.Currency:
-                    return new List<InventoryType>()
-                        {InventoryType.Currency,InventoryType.FreeCompanyGil, InventoryType.RetainerGil, InventoryType.FreeCompanyCurrency};
-                case InventoryCategory.CharacterEquipped:
-                    return new List<InventoryType>()
-                        {InventoryType.GearSet0};
-                case InventoryCategory.CharacterArmoryChest:
-                    return new List<InventoryType>()
-                        {InventoryType.ArmoryBody, InventoryType.ArmoryEar, InventoryType.ArmoryFeet, InventoryType.ArmoryHand, InventoryType.ArmoryHead, InventoryType.ArmoryLegs, InventoryType.ArmoryMain, InventoryType.ArmoryNeck, InventoryType.ArmoryOff, InventoryType.ArmoryRing, InventoryType.ArmorySoulCrystal, InventoryType.ArmoryWaist, InventoryType.ArmoryWrist};
-                case InventoryCategory.GlamourChest:
-                    return new List<InventoryType>()
-                        {InventoryType.GlamourChest};
-                case InventoryCategory.RetainerEquipped:
-                    return new List<InventoryType>()
-                        {InventoryType.RetainerEquippedGear};
-                case InventoryCategory.RetainerMarket:
-                    return new List<InventoryType>()
-                        {InventoryType.RetainerMarket};
-                case InventoryCategory.CharacterSaddleBags:
-                    return new List<InventoryType>()
-                        {InventoryType.SaddleBag0,InventoryType.SaddleBag1};
-                case InventoryCategory.CharacterPremiumSaddleBags:
-                    return new List<InventoryType>()
-                        {InventoryType.PremiumSaddleBag0,InventoryType.PremiumSaddleBag1};
-                case InventoryCategory.FreeCompanyBags:
-                    return new List<InventoryType>()
-                        {InventoryType.FreeCompanyBag0,InventoryType.FreeCompanyBag1,InventoryType.FreeCompanyBag2,InventoryType.FreeCompanyBag3,InventoryType.FreeCompanyBag4,InventoryType.FreeCompanyBag5,InventoryType.FreeCompanyBag6,InventoryType.FreeCompanyBag7,InventoryType.FreeCompanyBag8,InventoryType.FreeCompanyBag9,InventoryType.FreeCompanyBag10};
-                case InventoryCategory.HousingInteriorItems:
-                    return new List<InventoryType>()
-                        {
-                            InventoryType.HousingInteriorPlacedItems1, InventoryType.HousingInteriorPlacedItems2,
-                            InventoryType.HousingInteriorPlacedItems3, InventoryType.HousingInteriorPlacedItems4,
-                            InventoryType.HousingInteriorPlacedItems5, InventoryType.HousingInteriorPlacedItems6,
-                            InventoryType.HousingInteriorPlacedItems7, InventoryType.HousingInteriorPlacedItems8,
-                        };
-                case InventoryCategory.HousingInteriorStoreroom:
-                    return new List<InventoryType>()
-                        {
-                            InventoryType.HousingInteriorStoreroom1, InventoryType.HousingInteriorStoreroom2,
-                            InventoryType.HousingInteriorStoreroom3, InventoryType.HousingInteriorStoreroom4,
-                            InventoryType.HousingInteriorStoreroom5, InventoryType.HousingInteriorStoreroom6,
-                            InventoryType.HousingInteriorStoreroom7, InventoryType.HousingInteriorStoreroom8,
-                        };
-                case InventoryCategory.HousingInteriorAppearance:
-                    return new List<InventoryType>()
-                        {
-                            InventoryType.HousingInteriorAppearance
-                        };
-                case InventoryCategory.HousingExteriorStoreroom:
-                    return new List<InventoryType>()
-                        {
-                            InventoryType.HousingExteriorStoreroom
-                        };
-                case InventoryCategory.HousingExteriorItems:
-                    return new List<InventoryType>()
-                        {
-                            InventoryType.HousingExteriorPlacedItems
-                        };
-                case InventoryCategory.HousingExteriorAppearance:
-                    return new List<InventoryType>()
-                        {
-                            InventoryType.HousingExteriorAppearance
-                        };
-            }
-
-            return new List<InventoryType>();
-        }
-
         public static bool IsRetainerCategory(this InventoryCategory category)
         {
             return category is InventoryCategory.RetainerBags or InventoryCategory.RetainerEquipped or InventoryCategory
@@ -199,41 +115,12 @@ namespace CriticalCommonLib.Extensions
             return "未知";
         }
         
+
         public static string FormattedName(this InventoryChangeReason reason)
         {
-            switch (reason)
-            {
-                case InventoryChangeReason.Added:
-                    return "新增";
-                case InventoryChangeReason.Removed:
-                    return "移除";
-                case InventoryChangeReason.Moved:
-                    return "移动";
-                case InventoryChangeReason.ConditionChanged:
-                    return "状态变更";
-                case InventoryChangeReason.FlagsChanged:
-                    return "NQ/HQ变更";
-                case InventoryChangeReason.GlamourChanged:
-                    return "投影变更";
-                case InventoryChangeReason.MateriaChanged:
-                    return "魔晶石变更";
-                case InventoryChangeReason.QuantityChanged:
-                    return "数量变更";
-                case InventoryChangeReason.SpiritbondChanged:
-                    return "灵魂绑定变更";
-                case InventoryChangeReason.StainChanged:
-                    return "染色变更";
-                case InventoryChangeReason.ItemIdChanged:
-                    return "物品变更";
-                case InventoryChangeReason.Transferred:
-                    return "转移";
-                case InventoryChangeReason.MarketPriceChanged:
-                    return "市场价格变更";
-                case InventoryChangeReason.GearsetsChanged:
-                    return "装备套装变更";
-            }
-            return "未知";
+            return reason.GetDisplayName();
         }
+        
         public static string FormattedName(this CharacterType characterType)
         {
             switch (characterType)
@@ -249,6 +136,7 @@ namespace CriticalCommonLib.Extensions
             }
             return "未知";
         }
+
         public static bool IsApplicable(this InventoryCategory inventoryCategory, CharacterType characterType)
         {
             switch (characterType)
