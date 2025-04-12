@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -24,7 +24,6 @@ namespace CriticalCommonLib.Services
         private Dictionary<(uint, ItemFlags), int> _itemCounts = new();
         private Dictionary<InventoryType, bool> _loadedInventories;
         private Queue<DateTime> _scheduledUpdates = new ();
-        private Dictionary<uint, ItemMarketBoardInfo> _retainerMarketPrices = new();
         private IInventoryScanner _inventoryScanner;
         private ICraftMonitor _craftMonitor;
         private IFramework _frameworkService;

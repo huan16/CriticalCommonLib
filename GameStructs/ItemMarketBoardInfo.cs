@@ -2,10 +2,10 @@ namespace CriticalCommonLib.GameStructs
 {
     public struct ItemMarketBoardInfo
     {
-        public uint sequence;
-        public uint containerId;
-        public uint slot;
-        public uint unknown;
-        public uint unitPrice;
+        public uint Sequence { get; set; }
+        public uint ContainerId { get; set; }
+        public uint Slot { get; set; }
+        public uint Unknown { get; set; }
+        public uint UnitPrice { get; set; }
     }
 }

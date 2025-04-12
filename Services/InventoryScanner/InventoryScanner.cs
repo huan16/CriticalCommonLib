@@ -87,7 +87,10 @@ namespace CriticalCommonLib.Services
             _clientState = clientState;
             _marketOrderService = marketOrderService;
             _retainerInventoryScanner = retainerInventoryScanner;
-            
+
+            _retainerInventoryScanner.RetainerContainersRefreshed += OnRetainerContainerRefreshed;
+            _retainerInventoryScanner.RetainerMarketRefreshed += OnRetainerMarketRefreshed;
+
             _mirageSetLookup = _mirageStoreSetItemSheet.ToDictionary(c => c.RowId, c => new List<uint>()
             {
                 c.Unknown0, c.Unknown1, c.Unknown2, c.Unknown3, c.Unknown4, c.Unknown5, c.Unknown6, c.Unknown7,
@@ -104,7 +107,6 @@ namespace CriticalCommonLib.Services
                     _mirageSetItemLookup[setItem].Add(set.Key);
                 }
             }
-
 
             _framework.RunOnFrameworkThread(() =>
             {
@@ -427,8 +429,6 @@ namespace CriticalCommonLib.Services
                         ParseSaddleBags(inventorySortOrder, changeSet);
                         ParsePremiumSaddleBags(inventorySortOrder, changeSet);
                         ParseArmouryChest(inventorySortOrder, changeSet);
-                        //ParseRetainerBags(inventorySortOrder, changeSet);
-                        _retainerInventoryScanner.ParseRetainerBags(inventorySortOrder, changeSet);
                     }
                     else
                     {
@@ -463,6 +463,60 @@ namespace CriticalCommonLib.Services
                 _framework.RunOnFrameworkThread(() => _pluginLog.Error(e.ToString()));
                 _framework.RunOnFrameworkThread(() => _pluginLog.Error("Attempting to restart the scanner in 20 seconds."));
                 _nextBagScan = DateTime.Now.AddMilliseconds(20000);
+            }
+        }
+        
+        private void OnRetainerContainerRefreshed()
+        {
+            try
+            {
+                if (_clientState.LocalContentId != 0 && _running)
+                {
+                    var changeSet = new BagChangeContainer();
+                    var inventorySortOrder = _odrScanner.GetSortOrder(_clientState.LocalContentId);
+
+                    if (inventorySortOrder != null)
+                    {
+                        _retainerInventoryScanner.ParseRetainerBags(inventorySortOrder, changeSet);
+                    }
+                    else
+                    {
+                        _pluginLog.Debug("Could not get inventory sort order, skipping bag scanning");
+                    }
+
+                    if (changeSet.HasChanges && changeSet.changes != null)
+                    {
+                        _framework.RunOnFrameworkThread(() => _pluginLog.Verbose($"Retainer inventory change count: {changeSet.changes.Count}"));
+                        _framework.RunOnFrameworkThread(() => BagsChanged?.Invoke(changeSet.changes));
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                _pluginLog.Error("The inventory scanner has crashed. Details below:" + e.ToString());
+            }
+        }
+
+        private void OnRetainerMarketRefreshed()
+        {
+            try
+            {
+                if (_clientState.LocalContentId != 0 && _running)
+                {
+                    var changeSet = new BagChangeContainer();
+
+                    _retainerInventoryScanner.ParseRetainerMarket(changeSet);
+
+                    if (changeSet.HasChanges && changeSet.changes != null)
+                    {
+                        _framework.RunOnFrameworkThread(() => _pluginLog.Verbose($"Retainer inventory change count: {changeSet.changes.Count}"));
+                        _framework.RunOnFrameworkThread(() => BagsChanged?.Invoke(changeSet.changes));
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                _pluginLog.Error("The inventory scanner has crashed. Details below:" + e.ToString());
             }
         }
 
