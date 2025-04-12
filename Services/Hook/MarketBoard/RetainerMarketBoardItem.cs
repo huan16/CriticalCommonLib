@@ -5,11 +5,12 @@ using CriticalCommonLib.Services;
 using Dalamud.Hooking;
 using Dalamud.Plugin.Services;
 using Dalamud.Utility.Signatures;
+using Dalamud.Game.Network.Internal;
 using FFXIVClientStructs.FFXIV.Client.Game;
 
 namespace CriticalCommonLib.Services.Hook
 {
-    public class ItemMarketBoardInfoHook : IDisposable
+    public class RetainerMarketBoardItem : IDisposable
     {
         private readonly ICharacterMonitor _characterMonitor;
         private readonly IPluginLog _pluginLog;
@@ -22,12 +23,12 @@ namespace CriticalCommonLib.Services.Hook
             DetourName = nameof(ItemMarketBoardInfoDetour))]
         private Hook<ItemMarketBoardInfoData>? _itemMarketBoardInfoHook;
         
-        private readonly Dictionary<ulong, uint[]> _cachedPrices = new();
+        private ItemMarketBoardInfo[] itemMarketBoardInfos = new ItemMarketBoardInfo[20];
 
-        public delegate void RetainerMarketPriceReceived(ulong retainerId, uint[] marketPrices);
-        public event RetainerMarketPriceReceived? OnRetainerMarketPriceReceived;
+        public delegate void RetainerMarketBoardItemReceived(ulong retainerId, uint[] marketPrices);
+        public event RetainerMarketBoardItemReceived? retainerMarketBoardItemReceived;
 
-        public ItemMarketBoardInfoHook(
+        public RetainerMarketBoardItem(
             ICharacterMonitor characterMonitor,
             IPluginLog pluginLog,
             IGameInteropProvider gameInteropProvider)
@@ -46,31 +47,27 @@ namespace CriticalCommonLib.Services.Hook
             {
                 if (a3 != null)
                 {
-                    var ptr = (IntPtr)a3 + 16;
-                    var containerInfo = NetworkDecoder.DecodeItemMarketBoardInfo(ptr);
                     var currentRetainerId = _characterMonitor.ActiveRetainerId;
-
                     if (currentRetainerId == 0)
                     {
                         return _itemMarketBoardInfoHook!.Original(seq, a3);
                     }
 
+                    var ptr = (IntPtr)a3 + 16;
+                    var containerInfo = NetworkDecoder.DecodeItemMarketBoardInfo(ptr);
+
                     // 检测到新的数据序列时重置缓存
                     if (containerInfo.sequence != _currentSequenceId)
                     {
-                        _pluginLog.Verbose("New sequence ID received, resetting cached prices.");
                         _currentSequenceId = containerInfo.sequence;
-                        if (!_cachedPrices.ContainsKey(currentRetainerId))
-                        {
-                            _cachedPrices[currentRetainerId] = new uint[20];
-                        }
+                        itemMarketBoardInfos = new ItemMarketBoardInfo[20];
                     }
 
                     // 仅处理市场板类型的数据（过滤其他容器类型）
                     if (containerInfo.containerId == (uint)InventoryType.RetainerMarket)
                     {
                         // 将数据存入对应槽位并记录日志
-                        _cachedPrices[currentRetainerId][containerInfo.slot] = containerInfo.unitPrice;
+                        itemMarketBoardInfos[containerInfo.slot] = containerInfo;
                     }
                 }
             }
@@ -82,14 +79,8 @@ namespace CriticalCommonLib.Services.Hook
             return _itemMarketBoardInfoHook!.Original(seq, a3);
         }
 
-        public uint[]? GetCachedMarketPrice(ulong retainerId)
-        {
-            return _cachedPrices.TryGetValue(retainerId, out var prices) ? prices : null;
-        }
-
         public void Dispose()
         {
-            _itemMarketBoardInfoHook?.Disable();
             _itemMarketBoardInfoHook?.Dispose();
         }
     }
