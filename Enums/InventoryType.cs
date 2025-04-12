@@ -154,7 +154,7 @@ namespace CriticalCommonLib.Enums {
         RetainerGil = 12000,
         [InventoryTypeInfo(InventoryCategory.Crystals, "雇员水晶")]
         RetainerCrystal = 12001,
-        [InventoryTypeInfo(InventoryCategory.RetainerMarket, "雇员市场")]
+        [InventoryTypeInfo(InventoryCategory.RetainerMarket, "商品出售列表")]
         RetainerMarket = 12002,
 
         // 部队相关
