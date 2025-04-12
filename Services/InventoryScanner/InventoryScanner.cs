@@ -56,6 +56,7 @@ namespace CriticalCommonLib.Services
         private readonly IMarketOrderService _marketOrderService;
         private readonly ExcelSheet<MirageStoreSetItem> _mirageStoreSetItemSheet;
         private readonly RetainerInventoryScanner _retainerInventoryScanner;
+        private readonly FreeCompanyChestScanner _freeCompanyChestScanner;
         public DateTime? _lastStorageCheck;
         public DateTime? _nextBagScan;
 
@@ -69,6 +70,7 @@ namespace CriticalCommonLib.Services
             CabinetSheet cabinetSheet, 
             ExcelSheet<MirageStoreSetItem> mirageStoreSetItemSheet, 
             RetainerInventoryScanner retainerInventoryScanner,
+            FreeCompanyChestScanner freeCompanyChestScanner,
             IPluginLog pluginLog,
             ItemSheet itemSheet, 
             IClientState clientState, 
@@ -87,9 +89,11 @@ namespace CriticalCommonLib.Services
             _clientState = clientState;
             _marketOrderService = marketOrderService;
             _retainerInventoryScanner = retainerInventoryScanner;
+            _freeCompanyChestScanner = freeCompanyChestScanner;
 
             _retainerInventoryScanner.RetainerContainersRefreshed += OnRetainerContainerRefreshed;
             _retainerInventoryScanner.RetainerMarketRefreshed += OnRetainerMarketRefreshed;
+            _freeCompanyChestScanner.FreeCompanyChestRefreshed += OnFreeCompanyChestRefreshed;
 
             _mirageSetLookup = _mirageStoreSetItemSheet.ToDictionary(c => c.RowId, c => new List<uint>()
             {
@@ -436,7 +440,6 @@ namespace CriticalCommonLib.Services
                     }
 
                     ParseCharacterEquipped(changeSet);
-                    ParseFreeCompanyBags(changeSet);
                     ParseHouseBags(changeSet);
                     ParseArmoire(changeSet);
                     ParseGlamourChest(changeSet);
@@ -509,7 +512,30 @@ namespace CriticalCommonLib.Services
 
                     if (changeSet.HasChanges && changeSet.changes != null)
                     {
-                        _framework.RunOnFrameworkThread(() => _pluginLog.Verbose($"Retainer inventory change count: {changeSet.changes.Count}"));
+                        _framework.RunOnFrameworkThread(() => _pluginLog.Verbose($"Retainer market change count: {changeSet.changes.Count}"));
+                        _framework.RunOnFrameworkThread(() => BagsChanged?.Invoke(changeSet.changes));
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                _pluginLog.Error("The inventory scanner has crashed. Details below:" + e.ToString());
+            }
+        }
+
+        private void OnFreeCompanyChestRefreshed(InventoryType inventoryType)
+        {
+            try
+            {
+                if (_clientState.LocalContentId != 0 && _running)
+                {
+                    var changeSet = new BagChangeContainer();
+
+                    _freeCompanyChestScanner.ParseFreeCompanyBags(inventoryType, changeSet);
+
+                    if (changeSet.HasChanges && changeSet.changes != null)
+                    {
+                        _framework.RunOnFrameworkThread(() => _pluginLog.Verbose($"Free company chest change count: {changeSet.changes.Count}"));
                         _framework.RunOnFrameworkThread(() => BagsChanged?.Invoke(changeSet.changes));
                     }
                 }
@@ -793,14 +819,14 @@ namespace CriticalCommonLib.Services
         public InventoryItem[] ArmourySoulCrystals { get; } = new InventoryItem[25];
 
 
-        public InventoryItem[] FreeCompanyBag1 { get; } = new InventoryItem[50];
-        public InventoryItem[] FreeCompanyBag2 { get; } = new InventoryItem[50];
-        public InventoryItem[] FreeCompanyBag3 { get; } = new InventoryItem[50];
-        public InventoryItem[] FreeCompanyBag4 { get; } = new InventoryItem[50];
-        public InventoryItem[] FreeCompanyBag5 { get; } = new InventoryItem[50];
-        public InventoryItem[] FreeCompanyGil { get; } = new InventoryItem[11];
+        public InventoryItem[] FreeCompanyBag1 => _freeCompanyChestScanner.FreeCompanyBags[InventoryType.FreeCompanyPage1];
+        public InventoryItem[] FreeCompanyBag2 => _freeCompanyChestScanner.FreeCompanyBags[InventoryType.FreeCompanyPage2];
+        public InventoryItem[] FreeCompanyBag3 => _freeCompanyChestScanner.FreeCompanyBags[InventoryType.FreeCompanyPage3];
+        public InventoryItem[] FreeCompanyBag4 => _freeCompanyChestScanner.FreeCompanyBags[InventoryType.FreeCompanyPage4];
+        public InventoryItem[] FreeCompanyBag5 => _freeCompanyChestScanner.FreeCompanyBags[InventoryType.FreeCompanyPage5];
+        public InventoryItem[] FreeCompanyGil => _freeCompanyChestScanner.FreeCompanyBags[InventoryType.FreeCompanyGil];
         public InventoryItem[] FreeCompanyCurrency { get; } = new InventoryItem[1];
-        public InventoryItem[] FreeCompanyCrystals { get; } = new InventoryItem[18];
+        public InventoryItem[] FreeCompanyCrystals => _freeCompanyChestScanner.FreeCompanyBags[InventoryType.FreeCompanyCrystals];
 
         public InventoryItem[] HousingInteriorStoreroom1 { get; } = new InventoryItem[50];
         public InventoryItem[] HousingInteriorStoreroom2 { get; } = new InventoryItem[50];
@@ -1413,80 +1439,6 @@ namespace CriticalCommonLib.Services
                             }
                         }
                     }
-                }
-            }
-        }
-
-        public unsafe void ParseFreeCompanyBags(BagChangeContainer changeSet)
-        {
-            for (var b = 0; b < _freeCompanyBagTypes.Length; b++)
-            {
-                var bagType = _freeCompanyBagTypes[b];
-                if (_loadedInventories.Contains(bagType))
-                {
-                    InMemory.Add(bagType);
-                    var bag = InventoryManager.Instance()->GetInventoryContainer(bagType);
-                    if (bag != null && bag->Loaded != 0)
-                    {
-                        InventoryItem[]? fcItems = null;
-                        switch (bagType)
-                        {
-                            case InventoryType.FreeCompanyPage1:
-                                fcItems = FreeCompanyBag1;
-                                break;
-                            case InventoryType.FreeCompanyPage2:
-                                fcItems = FreeCompanyBag2;
-                                break;
-                            case InventoryType.FreeCompanyPage3:
-                                fcItems = FreeCompanyBag3;
-                                break;
-                            case InventoryType.FreeCompanyPage4:
-                                fcItems = FreeCompanyBag4;
-                                break;
-                            case InventoryType.FreeCompanyPage5:
-                                fcItems = FreeCompanyBag5;
-                                break;
-                            case InventoryType.FreeCompanyGil:
-                                fcItems = FreeCompanyGil;
-                                break;
-                            case InventoryType.FreeCompanyCrystals:
-                                fcItems = FreeCompanyCrystals;
-                                break;
-                        }
-
-                        if (fcItems != null)
-                            for (var i = 0; i < bag->Size; i++)
-                            {
-                                var fcItem = bag->Items[i];
-                                fcItem.Slot = (short)i;
-                                if (!fcItem.IsSame(fcItems[i]))
-                                {
-                                    fcItems[i] = fcItem;
-                                    changeSet.Add(new BagChange(fcItem, bagType));
-                                }
-                            }
-                    }
-                }
-            }
-
-            if (_loadedInventories.Contains((InventoryType)Enums.InventoryType.FreeCompanyCurrency))
-            {
-                var atkDataHolder = Framework.Instance()->UIModule->GetRaptureAtkModule()->AtkModule
-                    .AtkArrayDataHolder;
-                var fcHolder = atkDataHolder.GetNumberArrayData(51);
-                var fcCredit = fcHolder->IntArray[9];
-                var fakeCreditItem = new InventoryItem();
-                fakeCreditItem.ItemId = 80;
-                fakeCreditItem.Container = (InventoryType)Enums.InventoryType.FreeCompanyCurrency;
-                fakeCreditItem.Quantity = fcCredit;
-                fakeCreditItem.Slot = 0;
-                fakeCreditItem.Flags = InventoryItem.ItemFlags.None;
-                InMemory.Add((InventoryType)Enums.InventoryType.FreeCompanyCurrency);
-                if (!fakeCreditItem.IsSame(FreeCompanyCurrency[0]) && (fakeCreditItem.Quantity != 0 || FreeCompanyCurrency[0].Quantity == 0))
-                {
-                    FreeCompanyCurrency[0] = fakeCreditItem;
-                    changeSet.Add(new BagChange(fakeCreditItem,
-                        (InventoryType)Enums.InventoryType.FreeCompanyCurrency));
                 }
             }
         }

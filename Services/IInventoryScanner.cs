@@ -72,7 +72,6 @@ namespace CriticalCommonLib.Services
         unsafe void ParsePremiumSaddleBags(InventorySortOrder currentSortOrder, BagChangeContainer changeSet);
         unsafe void ParseArmouryChest(InventorySortOrder currentSortOrder, BagChangeContainer changeSet);
         unsafe void ParseCharacterEquipped(BagChangeContainer changeSet);
-        unsafe void ParseFreeCompanyBags(BagChangeContainer changeSet);
         unsafe void ParseArmoire(BagChangeContainer changeSet);
         unsafe void ParseGlamourChest(BagChangeContainer changeSet);
         unsafe bool ParseGearSets(BagChangeContainer changeSet);
