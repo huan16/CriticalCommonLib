@@ -49,6 +49,16 @@ namespace CriticalCommonLib.Enums {
 
         public static string GetDetailedName(this InventoryType type)
             => _detailedNameCache[type];
+
+        public static bool IsArmory(this InventoryType type)
+        {
+            return (uint)type >= 3200 && (uint)type <= 3500;
+        }
+
+        public static bool IsEquipped(this InventoryType type)
+        {
+            return (uint)type >= 1000 && (uint)type <= 1001;
+        }
     }
 
     public enum InventoryType
@@ -63,7 +73,7 @@ namespace CriticalCommonLib.Enums {
         [InventoryTypeInfo(InventoryCategory.CharacterBags, "主背包4", "角色背包4")]
         Bag3 = 3,
 
-        // 装备套装
+        // 装备套装,EquippedItems
         [InventoryTypeInfo(InventoryCategory.CharacterEquipped, "装备套装1", "角色装备1")]
         GearSet0 = 1000,
         [InventoryTypeInfo(InventoryCategory.CharacterEquipped, "装备套装2", "角色装备2")]
@@ -96,31 +106,31 @@ namespace CriticalCommonLib.Enums {
         FreeCompanyCurrency = 2502,
 
         // 装备兵装库
-        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "装备副手")]
-        ArmoryOff = 3200,
-        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "装备头部")]
+        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "副手兵装库")]
+        ArmoryOffHand = 3200,
+        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "头部兵装库")]
         ArmoryHead = 3201,
-        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "装备身体")]
+        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "身体兵装库")]
         ArmoryBody = 3202,
-        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "装备手部")]
+        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "手部兵装库")]
         ArmoryHand = 3203,
-        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "装备腰部")]
+        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "腰部兵装库")]
         ArmoryWaist = 3204,
-        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "装备腿部")]
+        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "腿部兵装库")]
         ArmoryLegs = 3205,
-        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "装备脚部")]
+        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "脚部兵装库")]
         ArmoryFeet = 3206,
-        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "装备耳饰")]
+        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "耳饰兵装库")]
         ArmoryEar = 3207,
-        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "装备项链")]
+        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "项链兵装库")]
         ArmoryNeck = 3208,
-        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "装备手镯")]
+        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "手镯兵装库")]
         ArmoryWrist = 3209,
-        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "装备戒指")]
+        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "戒指兵装库")]
         ArmoryRing = 3300,
-        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "职业水晶")]
+        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "职业水晶")] // 保留原名称（无"装备"前缀）
         ArmorySoulCrystal = 3400,
-        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "装备主手")]
+        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "主手兵装库")]
         ArmoryMain = 3500,
 
         // 陆行鸟背包

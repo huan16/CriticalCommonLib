@@ -21,8 +21,6 @@ using Newtonsoft.Json;
 
 namespace CriticalCommonLib.Models
 {
-    using FFXIVClientStructs.FFXIV.Client.UI.Agent;
-
     public class InventoryItem : IEquatable<InventoryItem>, ICsv, IItem
     {
         private readonly ItemSheet _itemSheet;
@@ -182,7 +180,7 @@ namespace CriticalCommonLib.Models
         public bool InRetainer => RetainerId.ToString().StartsWith("3");
 
         [JsonIgnore]
-        public bool IsEquippedGear => Container is InventoryType.ArmoryBody or InventoryType.ArmoryEar or InventoryType.ArmoryFeet or InventoryType.ArmoryHand or InventoryType.ArmoryHead or InventoryType.ArmoryLegs or InventoryType.ArmoryLegs or InventoryType.ArmoryMain or InventoryType.ArmoryNeck or InventoryType.ArmoryOff or InventoryType.ArmoryRing or InventoryType.ArmoryWaist or InventoryType.ArmoryWrist or InventoryType.GearSet0 or InventoryType.RetainerEquippedGear;
+        public bool IsEquippedGear => Container is InventoryType.ArmoryBody or InventoryType.ArmoryEar or InventoryType.ArmoryFeet or InventoryType.ArmoryHand or InventoryType.ArmoryHead or InventoryType.ArmoryLegs or InventoryType.ArmoryLegs or InventoryType.ArmoryMain or InventoryType.ArmoryNeck or InventoryType.ArmoryOffHand or InventoryType.ArmoryRing or InventoryType.ArmoryWaist or InventoryType.ArmoryWrist or InventoryType.GearSet0 or InventoryType.RetainerEquippedGear;
 
         [JsonIgnore]
         public int ActualSpiritbond => Spiritbond / 100;
@@ -276,7 +274,7 @@ namespace CriticalCommonLib.Models
 
                 else if (bagType is InventoryType.ArmoryBody or InventoryType.ArmoryEar or InventoryType.ArmoryFeet
                          or InventoryType.ArmoryHand or InventoryType.ArmoryHead or InventoryType.ArmoryLegs
-                         or InventoryType.ArmoryMain or InventoryType.ArmoryNeck or InventoryType.ArmoryOff
+                         or InventoryType.ArmoryMain or InventoryType.ArmoryNeck or InventoryType.ArmoryOffHand
                          or InventoryType.ArmoryRing or InventoryType.ArmoryWrist or InventoryType.ArmorySoulCrystal
                          or InventoryType.FreeCompanyBag0 or InventoryType.FreeCompanyBag1 or InventoryType.FreeCompanyBag2
                          or InventoryType.FreeCompanyBag3 or InventoryType.FreeCompanyBag4)

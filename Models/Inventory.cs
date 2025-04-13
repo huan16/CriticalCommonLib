@@ -308,7 +308,7 @@ public class Inventory
                 return ArmouryLegs;
             case InventoryType.ArmoryFeet:
                 return ArmouryFeet;
-            case InventoryType.ArmoryOff:
+            case InventoryType.ArmoryOffHand:
                 return ArmouryOffHand;
             case InventoryType.ArmoryEar:
                 return ArmouryEars;
