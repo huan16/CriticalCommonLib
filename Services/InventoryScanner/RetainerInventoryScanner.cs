@@ -5,6 +5,8 @@ using CriticalCommonLib.Extensions;
 using CriticalCommonLib.GameStructs;
 using CriticalCommonLib.Models;
 using CriticalCommonLib.Services.Hook;
+using Dalamud.Game.Addon.Lifecycle;
+using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using InventoryItem = FFXIVClientStructs.FFXIV.Client.Game.InventoryItem;
@@ -21,11 +23,31 @@ public class RetainerInventoryScanner : IDisposable
     // 出售商品顺序服务，用于处理雇员出售商品的顺序
     private readonly IMarketOrderService _marketOrderService;
     private readonly ContainerInfoHook _containerInfoHook;
-
+    private readonly IAddonLifecycle _addonLifecycle;
     private readonly HashSet<InventoryType> _loadedInventories = new();
+    // 需要加载的物品栏类型
+    private readonly InventoryType[] requiredInventories =
+    [
+        InventoryType.RetainerPage1,
+        InventoryType.RetainerPage2,
+        InventoryType.RetainerPage3,
+        InventoryType.RetainerPage4,
+        InventoryType.RetainerPage5,
+        InventoryType.RetainerPage6,
+        InventoryType.RetainerPage7,
+        InventoryType.RetainerEquippedItems,
+        InventoryType.RetainerGil,
+        InventoryType.RetainerCrystals,
+        InventoryType.RetainerMarket
+    ];
+
     // 插件日志服务
     private readonly IPluginLog _pluginLog;
     private bool isDisposed = false;
+
+    public delegate void RetainerContainersRefreshedDelegate();
+    public event RetainerContainersRefreshedDelegate? RetainerContainersRefreshed;
+    public event RetainerContainersRefreshedDelegate? RetainerMarketRefreshed;
 
     // 内存中的雇员及其已加载的物品栏类型
     public Dictionary<ulong, HashSet<InventoryType>> InMemoryRetainers { get; } = new();
@@ -48,16 +70,20 @@ public class RetainerInventoryScanner : IDisposable
         ICharacterMonitor characterMonitor, 
         IMarketOrderService marketOrderService, 
         IPluginLog pluginLog,
+        RetainerMarketBoardItem retainerMarketBoardItem,
+        IAddonLifecycle addonLifecycle,
         ContainerInfoHook containerInfoHook)
     {
         _characterMonitor = characterMonitor;
         _marketOrderService = marketOrderService;
         _pluginLog = pluginLog;
         _containerInfoHook = containerInfoHook;
+        _addonLifecycle = addonLifecycle;
 
         // 注册事件
         _containerInfoHook.ContainerInfoReceived += OnContainerInfoReceived;
         _characterMonitor.OnActiveRetainerChanged += CharacterMonitorOnOnActiveRetainerChanged;
+        _addonLifecycle.RegisterListener(AddonEvent.PostSetup, "RetainerSellList", OnRetainerSellListPostSetup);
 
         // 初始化物品栏类型到对应字典的映射
         _inventoryMap = new Dictionary<InventoryType, Dictionary<ulong, InventoryItem[]>>()
@@ -77,8 +103,24 @@ public class RetainerInventoryScanner : IDisposable
     private void OnContainerInfoReceived(ContainerInfo containerInfo, InventoryType inventoryType)
     {
         _loadedInventories.Add(inventoryType);
+        // 通过网络背包数据判断Inventory信息是否已刷新
+        var notLoadedInventories = requiredInventories.Where(inv => !_loadedInventories.Contains(inv)).ToList();
+        bool notAllInventoriesLoaded = notLoadedInventories.Any();
+        if (notAllInventoriesLoaded)
+        {
+            _pluginLog.Verbose($"Parsed retainer bags failed: unloaded inventories {string.Join(", ", notLoadedInventories)}");
+        }
+        else
+        {
+            RetainerContainersRefreshed?.Invoke();
+        }
     }
     
+    private unsafe void OnRetainerSellListPostSetup(AddonEvent type, AddonArgs args)
+    {
+        RetainerMarketRefreshed?.Invoke();
+    }
+
     private void CharacterMonitorOnOnActiveRetainerChanged(ulong retainerid)
     {
         if (retainerid == 0)
@@ -161,36 +203,12 @@ public class RetainerInventoryScanner : IDisposable
     {
         // 获取当前活动的雇员ID
         var activeRetainerId = _characterMonitor.ActiveRetainerId;
-        // 需要加载的物品栏类型
-        var requiredInventories = new[]
-        {
-            InventoryType.RetainerPage1,
-            InventoryType.RetainerPage2,
-            InventoryType.RetainerPage3,
-            InventoryType.RetainerPage4,
-            InventoryType.RetainerPage5,
-            InventoryType.RetainerPage6,
-            InventoryType.RetainerPage7,
-            InventoryType.RetainerEquippedItems,
-            InventoryType.RetainerGil,
-            InventoryType.RetainerCrystals,
-            InventoryType.RetainerMarket
-        };
         
         // 检查是否有活动雇员
         bool noCurrentRetainer = activeRetainerId == 0;
         if (noCurrentRetainer)
         {
             _pluginLog.Debug("Parsed retainer bags failed: no active retainer");
-            return;
-        }
-
-        // 通过网络背包数据判断Inventory信息是否已刷新
-        var notLoadedInventories = requiredInventories.Where(inv => !_loadedInventories.Contains(inv)).ToList();
-        bool notAllInventoriesLoaded = notLoadedInventories.Any();
-        if (notAllInventoriesLoaded)
-        {
-            _pluginLog.Debug($"Parsed retainer bags failed: unloaded inventories {string.Join(", ", notLoadedInventories)}");
             return;
         }
 
@@ -218,7 +236,6 @@ public class RetainerInventoryScanner : IDisposable
         var retainerBag6 = GetInventoryContainer(InventoryType.RetainerPage6);
         var retainerBag7 = GetInventoryContainer(InventoryType.RetainerPage7);
         var retainerEquippedItems = GetInventoryContainer(InventoryType.RetainerEquippedItems);
-        var retainerMarketItems = GetInventoryContainer(InventoryType.RetainerMarket);
         var retainerGil = GetInventoryContainer(InventoryType.RetainerGil);
         var retainerCrystal = GetInventoryContainer(InventoryType.RetainerCrystals);
 
@@ -238,29 +255,6 @@ public class RetainerInventoryScanner : IDisposable
         // 处理雇员水晶栏物品
         ProcessInventoryItems(retainerCrystal, RetainerCrystals[activeRetainerId], 
             InventoryType.RetainerCrystals, changeSet);
-
-        // 获取当前出售物品顺序
-        var marketOrder = _marketOrderService.GetCurrentOrder();
-        // 处理雇员市场出售物品栏
-        if (marketOrder != null)
-        {
-            // 根据市场订单排序市场物品
-            var sortedItems = marketOrder
-                .Where(kv => kv.Key < retainerMarketItems->Size)
-                .OrderBy(kv => kv.Value)
-                .Select(kv => 
-                {
-                    var item = retainerMarketItems->Items[kv.Key];
-                    item.Slot = (short)kv.Key;
-                    return item;
-                });
-
-            for (int i = 0; i < sortedItems.Count(); i++)
-            {
-                var item = sortedItems.ElementAt(i);
-                RetainerMarket[activeRetainerId][i] = item;
-            }
-        }
 
         // 处理雇员普通物品栏（按排序顺序）
         var newBags = new InventoryItem[7][];
@@ -349,6 +343,50 @@ public class RetainerInventoryScanner : IDisposable
                 }
                 absoluteIndex++;
             }
+        }
+    }
+
+    public unsafe void ParseRetainerMarket(BagChangeContainer changeSet)
+    {
+        // 获取当前活动的雇员ID
+        var activeRetainerId = _characterMonitor.ActiveRetainerId;
+        
+        // 检查是否有活动雇员
+        bool noCurrentRetainer = activeRetainerId == 0;
+        if (noCurrentRetainer)
+        {
+            _pluginLog.Debug("Parsed retainer bags failed: no active retainer");
+            return;
+        }
+
+        var retainerMarketItems = GetInventoryContainer(InventoryType.RetainerMarket);
+
+        // 获取当前出售物品顺序
+        var marketOrder = _marketOrderService.GetCurrentOrder();
+        // 处理雇员市场出售物品栏
+        if (marketOrder != null)
+        {
+            // 根据市场订单排序市场物品
+            var sortedItems = marketOrder
+                .Where(kv => kv.Key < retainerMarketItems->Size)
+                .OrderBy(kv => kv.Value)
+                .Select(kv => 
+                {
+                    var item = retainerMarketItems->Items[kv.Key];
+                    item.Slot = (short)kv.Key;
+                    return item;
+                });
+
+            for (int i = 0; i < sortedItems.Count(); i++)
+            {
+                var item = sortedItems.ElementAt(i);
+                RetainerMarket[activeRetainerId][i] = item;
+                changeSet.Add(new BagChange(item, InventoryType.RetainerMarket));
+            }
+        }
+        else
+        {
+            _pluginLog.Debug("Parsed retainer bags failed: no market order");
         }
     }
 

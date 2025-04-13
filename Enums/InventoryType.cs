@@ -144,19 +144,19 @@ namespace CriticalCommonLib.Enums {
         PremiumSaddleBag1 = 4101,
 
         // 雇员相关
-        [InventoryTypeInfo(InventoryCategory.RetainerBags, "雇员物品栏1")]
+        [InventoryTypeInfo(InventoryCategory.RetainerBags, "雇员背包1")]
         RetainerBag0 = 10000,
-        [InventoryTypeInfo(InventoryCategory.RetainerBags, "雇员物品栏2")]
+        [InventoryTypeInfo(InventoryCategory.RetainerBags, "雇员背包2")]
         RetainerBag1 = 10001,
-        [InventoryTypeInfo(InventoryCategory.RetainerBags, "雇员物品栏3")]
+        [InventoryTypeInfo(InventoryCategory.RetainerBags, "雇员背包3")]
         RetainerBag2 = 10002,
-        [InventoryTypeInfo(InventoryCategory.RetainerBags, "雇员物品栏4")]
+        [InventoryTypeInfo(InventoryCategory.RetainerBags, "雇员背包4")]
         RetainerBag3 = 10003,
-        [InventoryTypeInfo(InventoryCategory.RetainerBags, "雇员物品栏5")]
+        [InventoryTypeInfo(InventoryCategory.RetainerBags, "雇员背包5")]
         RetainerBag4 = 10004,
-        [InventoryTypeInfo(InventoryCategory.RetainerBags, "雇员物品栏6")]
+        [InventoryTypeInfo(InventoryCategory.RetainerBags, "雇员背包6")]
         RetainerBag5 = 10005,
-        [InventoryTypeInfo(InventoryCategory.RetainerBags, "雇员物品栏7")]
+        [InventoryTypeInfo(InventoryCategory.RetainerBags, "雇员背包7")]
         RetainerBag6 = 10006,
         [InventoryTypeInfo(InventoryCategory.RetainerEquipped, "雇员装备")]
         RetainerEquippedGear = 11000,
@@ -164,7 +164,7 @@ namespace CriticalCommonLib.Enums {
         RetainerGil = 12000,
         [InventoryTypeInfo(InventoryCategory.Crystals, "雇员水晶")]
         RetainerCrystal = 12001,
-        [InventoryTypeInfo(InventoryCategory.RetainerMarket, "雇员市场")]
+        [InventoryTypeInfo(InventoryCategory.RetainerMarket, "商品出售列表")]
         RetainerMarket = 12002,
 
         // 部队相关

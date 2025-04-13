@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -24,7 +24,6 @@ namespace CriticalCommonLib.Services
         private Dictionary<(uint, ItemFlags), int> _itemCounts = new();
         private Dictionary<InventoryType, bool> _loadedInventories;
         private Queue<DateTime> _scheduledUpdates = new ();
-        private Dictionary<uint, ItemMarketBoardInfo> _retainerMarketPrices = new();
         private IInventoryScanner _inventoryScanner;
         private ICraftMonitor _craftMonitor;
         private IFramework _frameworkService;
@@ -483,25 +482,22 @@ namespace CriticalCommonLib.Services
 
             var inventory = _inventories[freeCompanyId];
 
-            HashSet<FFXIVClientStructs.FFXIV.Client.Game.InventoryType> inventoryTypes = new HashSet<FFXIVClientStructs.FFXIV.Client.Game.InventoryType>();
-            inventoryTypes.Add( FFXIVClientStructs.FFXIV.Client.Game.InventoryType.FreeCompanyPage1);
-            inventoryTypes.Add( FFXIVClientStructs.FFXIV.Client.Game.InventoryType.FreeCompanyPage2);
-            inventoryTypes.Add( FFXIVClientStructs.FFXIV.Client.Game.InventoryType.FreeCompanyPage3);
-            inventoryTypes.Add( FFXIVClientStructs.FFXIV.Client.Game.InventoryType.FreeCompanyPage4);
-            inventoryTypes.Add( FFXIVClientStructs.FFXIV.Client.Game.InventoryType.FreeCompanyPage5);
-            inventoryTypes.Add( FFXIVClientStructs.FFXIV.Client.Game.InventoryType.FreeCompanyCrystals);
-            inventoryTypes.Add( FFXIVClientStructs.FFXIV.Client.Game.InventoryType.FreeCompanyGil);
-            inventoryTypes.Add( (FFXIVClientStructs.FFXIV.Client.Game.InventoryType)InventoryType.FreeCompanyCurrency);
+            HashSet<FFXIVClientStructs.FFXIV.Client.Game.InventoryType> inventoryTypes =
+            [
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.FreeCompanyPage1,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.FreeCompanyPage2,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.FreeCompanyPage3,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.FreeCompanyPage4,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.FreeCompanyPage5,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.FreeCompanyCrystals,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.FreeCompanyGil,
+                (FFXIVClientStructs.FFXIV.Client.Game.InventoryType)InventoryType.FreeCompanyCurrency,
+            ];
             foreach (var inventoryType in inventoryTypes)
             {
-                if (!_inventoryScanner.InMemory.Contains(inventoryType))
-                {
-                    continue;
-                }
-
                 var inventoryCategory = inventoryType.Convert().ToInventoryCategory();
                 var items = _inventoryScanner.GetInventoryByType(inventoryType);
-                inventory.LoadGameItems(items,inventoryType.Convert(), inventoryCategory, false, inventoryChanges);
+                inventory.LoadGameItems(items, inventoryType.Convert(), inventoryCategory, false, inventoryChanges);
             }
         }
 

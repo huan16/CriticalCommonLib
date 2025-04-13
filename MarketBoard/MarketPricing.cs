@@ -10,136 +10,23 @@ using LuminaSupplemental.Excel.Model;
 
 namespace CriticalCommonLib.MarketBoard;
 
-public class MarketPricing  : ICsv
+public class MarketPricing : UniversalisApiResponse
 {
-    public uint ItemId { get; set; }
-    public uint WorldId { get; set; }
-    public float AveragePriceNq { get; set; }
-    public float AveragePriceHq { get; set; }
-    public float MinPriceNq { get; set; }
-    public float MinPriceHq { get; set; }
-    public int SevenDaySellCount { get; set; }
-
-    public int Available { get; set; }
     public DateTime? LastSellDate { get; set; }
     public DateTime LastUpdate { get; set; } = DateTime.Now;
-
-    public RecentHistory[]? recentHistory;
-    public Listing[]? listings;
-    public void FromCsv(string[] lineData)
-    {
-        ItemId = uint.Parse( lineData[ 0 ], CultureInfo.InvariantCulture );
-        WorldId = uint.Parse( lineData[ 1 ], CultureInfo.InvariantCulture );
-        AveragePriceNq = float.Parse( lineData[ 2 ], CultureInfo.InvariantCulture );
-        AveragePriceHq = float.Parse( lineData[ 3 ], CultureInfo.InvariantCulture );
-        MinPriceNq = float.Parse( lineData[ 4 ], CultureInfo.InvariantCulture );
-        MinPriceHq = float.Parse( lineData[ 5 ], CultureInfo.InvariantCulture );
-        SevenDaySellCount = int.Parse( lineData[ 6 ], CultureInfo.InvariantCulture );
-        LastSellDate = lineData[7] == "" ? null : DateTime.Parse( lineData[ 7 ], CultureInfo.InvariantCulture );
-        LastUpdate = DateTime.Parse( lineData[ 8 ], CultureInfo.InvariantCulture );
-        Available = int.Parse( lineData[ 9 ], CultureInfo.InvariantCulture );
-    }
-
-    public string[] ToCsv()
-    {
-        List<String> data = new List<string>()
-        {
-            ItemId.ToString(),
-            WorldId.ToString(),
-            AveragePriceNq.ToString(CultureInfo.InvariantCulture),
-            AveragePriceHq.ToString(CultureInfo.InvariantCulture),
-            MinPriceNq.ToString(CultureInfo.InvariantCulture),
-            MinPriceHq.ToString(CultureInfo.InvariantCulture),
-            SevenDaySellCount.ToString(CultureInfo.InvariantCulture),
-            LastSellDate.HasValue ? LastSellDate.Value.ToString(CultureInfo.InvariantCulture) : "",
-            LastUpdate.ToString(CultureInfo.InvariantCulture),
-            Available.ToString(CultureInfo.InvariantCulture),
-        };
-        return data.ToArray();
-    }
-
-    public bool IncludeInCsv()
-    {
-        return true;
-    }
-
-    public void PopulateData(ExcelModule excelModule, Language language)
+    public int Available { get; set; } = 0;
+    // 从UniversalisApiResponse推荐的价格
+    public uint UniversalisRecomendationPrice { get; set; } = 0;
+    // 从交易板推荐的价格
+    public uint MarketBoardRecomendationPrice { get; set; } = 0;
+    // 创建空的市场价格对象
+    public MarketPricing() : base()
     {
     }
 
-    public static MarketPricing FromApi(PricingAPIResponse apiResponse, uint worldId, int saleHistoryLimit)
+    // 基于 UniversalisApiResponse 创建市场价格对象
+    public MarketPricing(UniversalisApiResponse source) : base(source)
     {
-        MarketPricing response = new MarketPricing();
-        response.AveragePriceNq = apiResponse.averagePriceNQ;
-        response.AveragePriceHq = apiResponse.averagePriceHQ;
-        response.MinPriceHq = apiResponse.minPriceHQ;
-        response.MinPriceNq = apiResponse.minPriceNQ;
-        response.ItemId = apiResponse.itemID;
-        response.Available = apiResponse.listings?.Length ?? 0;
-        response.WorldId = worldId;
-
-        response.listings = apiResponse.listings;
-        response.recentHistory = apiResponse.recentHistory;
-        int? realMinPriceHq = null;
-        int? realMinPriceNq = null;
-        if (apiResponse.listings != null && apiResponse.listings.Length != 0)
-        {
-            foreach (var listing in apiResponse.listings)
-            {
-                if (listing.hq)
-                {
-                    if (realMinPriceHq == null || realMinPriceHq > listing.pricePerUnit)
-                    {
-                        realMinPriceHq = listing.pricePerUnit;
-                    }
-                }
-                else
-                {
-                    if (realMinPriceNq == null || realMinPriceNq > listing.pricePerUnit)
-                    {
-                        realMinPriceNq = listing.pricePerUnit;
-                    }
-                }
-            }
-
-            if (realMinPriceHq != null)
-            {
-                response.MinPriceHq = realMinPriceHq.Value;
-            }
-
-            if (realMinPriceNq != null)
-            {
-                response.MinPriceNq = realMinPriceNq.Value;
-            }
-        }
-        if (apiResponse.recentHistory != null && apiResponse.recentHistory.Length != 0)
-        {
-            DateTime? latestDate = null;
-            int sevenDaySales = 0;
-            foreach (var history in apiResponse.recentHistory)
-            {
-                var dateTime = DateTimeOffset.FromUnixTimeSeconds(history.timestamp).LocalDateTime;
-                if (latestDate == null || latestDate <= dateTime)
-                {
-                    latestDate = dateTime;
-                }
-
-                if (dateTime >= DateTime.Now.AddDays(-saleHistoryLimit))
-                {
-                    sevenDaySales++;
-                }
-            }
-
-            response.SevenDaySellCount = sevenDaySales;
-            response.LastSellDate = latestDate;
-
-        }
-        else
-        {
-            response.LastSellDate = null;
-            response.SevenDaySellCount = 0;
-        }
-
-        return response;
+        Available = listings?.Length ?? 0;
     }
 }

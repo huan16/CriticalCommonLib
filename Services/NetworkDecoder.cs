@@ -31,11 +31,11 @@ namespace CriticalCommonLib.Services
             {
                 using (BinaryReader binaryReader = new BinaryReader(unmanagedMemoryStream))
                 {
-                    itemMarketBoardInfo.sequence = binaryReader.ReadUInt32();
-                    itemMarketBoardInfo.containerId = binaryReader.ReadUInt32();
-                    itemMarketBoardInfo.slot = binaryReader.ReadUInt32();
-                    itemMarketBoardInfo.unknown = binaryReader.ReadUInt32();
-                    itemMarketBoardInfo.unitPrice = binaryReader.ReadUInt32();
+                    itemMarketBoardInfo.Sequence = binaryReader.ReadUInt32();
+                    itemMarketBoardInfo.ContainerId = binaryReader.ReadUInt32();
+                    itemMarketBoardInfo.Slot = binaryReader.ReadUInt32();
+                    itemMarketBoardInfo.Unknown = binaryReader.ReadUInt32();
+                    itemMarketBoardInfo.UnitPrice = binaryReader.ReadUInt32();
                     return itemMarketBoardInfo;
                 }
             }
