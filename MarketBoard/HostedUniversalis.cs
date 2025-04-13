@@ -16,6 +16,9 @@ using Newtonsoft.Json;
 
 namespace CriticalCommonLib.MarketBoard;
 
+/// <summary>
+/// 负责与Universalis API交互的后台服务，管理市场板价格查询队列和异步请求处理。
+/// </summary>
 public class HostedUniversalis : BackgroundService, IUniversalis
 {
     private readonly ExcelSheet<World> _worldSheet;
@@ -33,7 +36,13 @@ public class HostedUniversalis : BackgroundService, IUniversalis
     public int QueuedCount => _queuedCount;
 
 
-    public HostedUniversalis(ILogger<HostedUniversalis> logger, HttpClient httpClient, MarketboardTaskQueue marketboardTaskQueue, ExcelSheet<World> worldSheet, IFramework framework, IHostedUniversalisConfiguration hostedUniversalisConfiguration)
+    public HostedUniversalis(
+        ILogger<HostedUniversalis> logger, 
+        HttpClient httpClient, 
+        MarketboardTaskQueue marketboardTaskQueue, 
+        ExcelSheet<World> worldSheet, 
+        IFramework framework, 
+        IHostedUniversalisConfiguration hostedUniversalisConfiguration)
     {
         _worldSheet = worldSheet;
         _framework = framework;
@@ -41,23 +50,23 @@ public class HostedUniversalis : BackgroundService, IUniversalis
         Logger = logger;
         HttpClient = httpClient;
         UniversalisQueue = marketboardTaskQueue;
+
         _framework.Update += FrameworkOnUpdate;
     }
 
     private void FrameworkOnUpdate(IFramework framework)
     {
-        foreach (var world in _queueWorldItemIds)
+        foreach (var world in _worldItemQueue)
         {
             if (world.Value.Item1 < DateTime.Now)
             {
-                _queueWorldItemIds.Remove(world.Key, out var fullList);
+                _worldItemQueue.Remove(world.Key, out var fullList);
                 _queuedCount += fullList.Item2.Count;
                 UniversalisQueue.QueueBackgroundWorkItemAsync(token => RetrieveMarketBoardPrices(fullList.Item2, world.Key,token));
                 break;
             }
         }
     }
-
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -92,23 +101,49 @@ public class HostedUniversalis : BackgroundService, IUniversalis
     {
     }
 
+    // 使用专用并发容器替代原始锁机制
+    private ConcurrentDictionary<uint, (DateTime ExpiryTime, HashSet<uint> Items)> _worldItemQueue = new();
+    private ConcurrentDictionary<uint, SemaphoreSlim> _worldLocks = new();
+
     public void QueuePriceCheck(uint itemId, uint worldId)
     {
-        _queueWorldItemIds.TryAdd(worldId, (DateTime.Now.AddSeconds(QueueTime), []));
-        _queueWorldItemIds[worldId].Item2.Add(itemId);
-        if (_queueWorldItemIds[worldId].Item2.Count == 50)
-        {
-            _queueWorldItemIds.Remove(worldId, out var fullList);
-            _queuedCount += fullList.Item2.Count;
-            UniversalisQueue.QueueBackgroundWorkItemAsync(token => RetrieveMarketBoardPrices(fullList.Item2, worldId,token));
+        var queueEntry = _worldItemQueue.GetOrAdd(worldId, 
+            _ => (DateTime.Now.AddSeconds(QueueTime), new HashSet<uint>()));
+
+        var worldLock = _worldLocks.GetOrAdd(worldId, _ => new SemaphoreSlim(1, 1));
+        
+        worldLock.Wait();
+        try {
+            queueEntry.Items.Add(itemId);
+            if (queueEntry.Items.Count == 50) {
+                ProcessFullBatch(worldId);
+            }
+        }
+        finally {
+            worldLock.Release();
         }
     }
 
-    private ConcurrentDictionary<uint, (DateTime,HashSet<uint>)> _queueWorldItemIds = new();
+    private void ProcessFullBatch(uint worldId)
+    {
+        if (_worldItemQueue.TryRemove(worldId, out var fullList)) 
+        {
+            Interlocked.Add(ref _queuedCount, fullList.Items.Count);
+            UniversalisQueue.QueueBackgroundWorkItemAsync(token => 
+                RetrieveMarketBoardPrices(fullList.Items, worldId, token));
+        }
+    }
+
     private int _queuedCount;
 
-
-    public async Task RetrieveMarketBoardPrices(IEnumerable<uint> itemIds, uint worldId, CancellationToken token,uint attempt = 0)
+    /// <summary>
+    /// 执行实际的Universalis API请求，处理价格数据并触发回调。
+    /// </summary>
+    /// <param name="itemIds">需要查询的物品ID列表</param>
+    /// <param name="worldId">目标服务器ID</param>
+    /// <param name="token">取消标记</param>
+    /// <param name="attempt">当前重试次数</param>
+    private async Task RetrieveMarketBoardPrices(IEnumerable<uint> itemIds, uint worldId, CancellationToken token, uint attempt = 0)
     {
         if (token.IsCancellationRequested)
         {
@@ -121,24 +156,33 @@ public class HostedUniversalis : BackgroundService, IUniversalis
             Logger.LogError($"Maximum retries for universalis has been reached, cancelling.");
             return;
         }
+
         string worldName;
         if (!_worldNames.ContainsKey(worldId))
         {
-            var world = _worldSheet.GetRowOrDefault(worldId);
+            var world = GetWorldName(worldId);
             if (world == null)
             {
                 _queuedCount -= itemIdList.Count;
                 return;
             }
-
-            _worldNames[worldId] = world.Value.Name.ExtractText();
+            _worldNames[worldId] = world;
         }
         worldName = _worldNames[worldId];
 
         var itemIdsString = String.Join(",", itemIdList.Select(c => c.ToString()).ToArray());
         Logger.LogTrace("Sending request for items {ItemIds} to universalis API.", itemIdsString);
-        string url =
-            $"https://universalis.app/api/v2/{worldName}/{itemIdsString}?listings=20&entries=20";
+        // 构造API请求URL
+        var apiRequestBuilder = new UniversalisApiBuilder(worldName)
+            .AddItemIds(itemIds)
+            .WithListings(30)
+            .WithEntries(30)
+            .WithStatsWithin(4 * 604800000L) // 7天 = 604800000ms
+            .WithEntriesWithin(4 * 604800000L)
+            .WithUserAgent("MyCustomClient/1.0");
+
+        var (requestUrl, _) = apiRequestBuilder.Build();
+
         try
         {
             if (token.IsCancellationRequested)
@@ -146,7 +190,7 @@ public class HostedUniversalis : BackgroundService, IUniversalis
                 return;
             }
 
-            var response = await HttpClient.GetAsync(url, token);
+            var response = await HttpClient.GetAsync(requestUrl, token);
 
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
@@ -170,43 +214,22 @@ public class HostedUniversalis : BackgroundService, IUniversalis
                 return;
             }
 
-            if (itemIdList.Count == 1)
+            // 解析响应数据
+            var itemsDict = ParseResponse(value, itemIdList.Count == 1);
+            if (itemsDict != null)
             {
-                PricingAPIResponse? apiListing = JsonConvert.DeserializeObject<PricingAPIResponse>(value);
-
-                if (apiListing != null)
+                foreach (var apiResponse in itemsDict.Values)
                 {
-                    var listing = MarketPricing.FromApi(apiListing, worldId,
-                        _hostedUniversalisConfiguration.SaleHistoryLimit);
+                    var listing = new MarketPricing(apiResponse);
                     await _framework.RunOnFrameworkThread(() =>
-                        ItemPriceRetrieved?.Invoke(apiListing.itemID, worldId, listing));
-                }
-                else
-                {
-                    Logger.LogError("Failed to parse universalis json data, backing off 30 seconds.");
-                    LastFailure = DateTime.Now;
-                    await Task.Delay(TimeSpan.FromSeconds(30));
+                        ItemPriceRetrieved?.Invoke(apiResponse.itemID, worldId, listing));
                 }
             }
             else
             {
-                MultiRequest? multiRequest = JsonConvert.DeserializeObject<MultiRequest>(value);
-                if (multiRequest != null)
-                {
-                    foreach (var item in multiRequest.items)
-                    {
-                        var listing = MarketPricing.FromApi(item.Value, worldId,
-                            _hostedUniversalisConfiguration.SaleHistoryLimit);
-                        await _framework.RunOnFrameworkThread(() =>
-                            ItemPriceRetrieved?.Invoke(item.Value.itemID, worldId, listing));
-                    }
-                }
-                else
-                {
-                    Logger.LogError("Failed to parse universalis multi request json data, backing off 30 seconds.");
-                    LastFailure = DateTime.Now;
-                    await Task.Delay(TimeSpan.FromSeconds(30));
-                }
+                Logger.LogError("Failed to parse universalis json data, backing off 30 seconds.");
+                LastFailure = DateTime.Now;
+                await Task.Delay(TimeSpan.FromSeconds(30));
             }
         }
         catch (TaskCanceledException)
@@ -215,15 +238,42 @@ public class HostedUniversalis : BackgroundService, IUniversalis
         }
         catch (JsonReaderException readerException)
         {
+            // 记录解析错误并重试
             Logger.LogError(readerException, "Failed to parse universalis data, backing off 30 seconds");
             LastFailure = DateTime.Now;
             await Task.Delay(TimeSpan.FromSeconds(30));
         }
-        catch (Exception ex)
+        finally
         {
-            Logger.LogTrace(ex, "Unhandled exception in universalis");
+            // 确保计数器正确更新
+            _queuedCount -= itemIdList.Count;
         }
-        _queuedCount -= itemIdList.Count;
+    }
+
+    private static Dictionary<string, UniversalisApiResponse> ParseResponse(string value, bool isSingleItem)
+    {
+        if (isSingleItem)
+        {
+            var apiListing = JsonConvert.DeserializeObject<UniversalisApiResponse>(value);
+            return apiListing != null 
+                ? new Dictionary<string, UniversalisApiResponse> { { apiListing.itemID.ToString(), apiListing } }
+                : new Dictionary<string, UniversalisApiResponse>();
+        }
+        else
+        {
+            var multiRequest = JsonConvert.DeserializeObject<MultiRequest>(value);
+            return multiRequest?.items ?? new Dictionary<string, UniversalisApiResponse>();
+        }
+    }
+
+    private readonly ConcurrentDictionary<uint, string> _worldNameCache = new();
+
+    private string GetWorldName(uint worldId)
+    {
+        return _worldNameCache.GetOrAdd(worldId, id => {
+            var world = _worldSheet.GetRowOrDefault(id);
+            return world?.Name.ExtractText() ?? string.Empty;
+        });
     }
 
     protected virtual void Dispose(bool disposing)

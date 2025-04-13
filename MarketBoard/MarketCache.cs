@@ -19,6 +19,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace CriticalCommonLib.MarketBoard
 {
+    using CriticalCommonLib.SQLite;
     using Dalamud.Plugin;
 
     public class MarketCacheConfiguration
@@ -39,12 +40,22 @@ namespace CriticalCommonLib.MarketBoard
         private readonly ConcurrentDictionary<(uint,uint), byte> _requestedItems = new();
         private ConcurrentDictionary<(uint, uint), MarketPricing> _marketBoardCache = new();
         private readonly Stopwatch _automaticSaveTimer = new();
-        private readonly string? _cacheStorageLocation;
         private readonly IBackgroundTaskQueue _saveQueue;
+        private readonly MarketPricingDatabase _marketPricingDatabase;
 
         public int AutomaticSaveTime { get; set; } = 120;
 
-        public MarketCache(IUniversalis universalis, MediatorService? mediator, IDalamudPluginInterface pluginInterfaceService, MarketCacheConfiguration marketCacheConfiguration, IBackgroundTaskQueue saveQueue, ExcelSheet<World> worldSheet, IPluginLog pluginLog, GameData gameData, ExcelSheet<Item> itemSheet)
+        public MarketCache(
+            IUniversalis universalis, 
+            MediatorService? mediator, 
+            IDalamudPluginInterface pluginInterfaceService, 
+            MarketCacheConfiguration marketCacheConfiguration, 
+            IBackgroundTaskQueue saveQueue, 
+            ExcelSheet<World> worldSheet, 
+            IPluginLog pluginLog, 
+            GameData gameData, 
+            ExcelSheet<Item> itemSheet,
+            MarketPricingDatabase marketPricingDatabase)
         {
             _saveQueue = saveQueue;
             _universalis = universalis;
@@ -54,7 +65,8 @@ namespace CriticalCommonLib.MarketBoard
             _pluginLog = pluginLog;
             _gameData = gameData;
             _itemSheet = itemSheet;
-            _cacheStorageLocation = Path.Join(pluginInterfaceService.ConfigDirectory.FullName, "market_cache.csv");
+            _marketPricingDatabase = marketPricingDatabase;
+
             LoadExistingCache();
             _universalis.ItemPriceRetrieved += UniversalisOnItemPriceRetrieved;
         }
@@ -115,49 +127,22 @@ namespace CriticalCommonLib.MarketBoard
 
         public void LoadExistingCache()
         {
-            if (_cacheStorageLocation == null)
-            {
-                throw new Exception("Cache not initialised yet.");
-            }
             try
             {
-                var cacheFile = new FileInfo(_cacheStorageLocation);
-                if (cacheFile.Exists)
+                var marketPricings = _marketPricingDatabase.GetAllMarketPricings();
+                foreach (var pricing in marketPricings)
                 {
-                    var loadedCache = LoadCsv<MarketPricing>(cacheFile.FullName, "Market Cache");
-                    foreach (var item in loadedCache)
-                    {
-                        _marketBoardCache[(item.ItemId, item.WorldId)] = item;
-                    }
+                    // 提取键：(ItemId, WorldId)
+                    var key = (pricing.itemID, pricing.worldID);
+                    
+                    // 将键值对存入缓存字典
+                    _marketBoardCache[key] = pricing;
                 }
             }
             catch (Exception e)
             {
-                _pluginLog.Error("Error while parsing saved universalis data, " + e.Message);
+                _pluginLog.Error("Error while parsing saved universalis data: " + e.Message);
             }
-        }
-
-        private List<T> LoadCsv<T>(string fileName, string title) where T : ICsv, new()
-        {
-            try
-            {
-                var lines = CsvLoader.LoadCsv<T>(fileName, false, out var failedLines, out var _, _gameData, _gameData.Options.DefaultExcelLanguage);
-                if (failedLines.Count != 0)
-                {
-                    foreach (var failedLine in failedLines)
-                    {
-                        _pluginLog.Error("Failed to load line from " + title + ": " + failedLine);
-                    }
-                }
-                return lines;
-            }
-            catch (Exception e)
-            {
-                _pluginLog.Error("Failed to load " + title);
-                _pluginLog.Error(e.Message);
-            }
-
-            return new List<T>();
         }
 
         public void ClearCache()
@@ -172,13 +157,11 @@ namespace CriticalCommonLib.MarketBoard
 
         public void SaveCache(bool forceSave = false)
         {
-            if (_cacheStorageLocation == null)
+            if (!forceSave && 
+                _automaticSaveTimer.IsRunning && 
+                _automaticSaveTimer.Elapsed < TimeSpan.FromSeconds(AutomaticSaveTime))
             {
-                throw new Exception("Cache not initialised yet.");
-            }
-            if (!forceSave && (_automaticSaveTimer.IsRunning && _automaticSaveTimer.Elapsed < TimeSpan.FromSeconds(AutomaticSaveTime)))
-            {
-                return;
+                return; // 自动保存间隔未到，跳过
             }
 
             if (!_automaticSaveTimer.IsRunning)
@@ -186,27 +169,30 @@ namespace CriticalCommonLib.MarketBoard
                 _automaticSaveTimer.Start();
             }
 
-            _pluginLog.Verbose("Saving MarketCache");
-            SaveAsync();
+            _pluginLog.Verbose("Saving MarketCache to database");
+            SaveAsync(); // 触发异步保存任务
 
-            _automaticSaveTimer.Restart();
+            _automaticSaveTimer.Restart(); // 重置计时器
         }
 
         private void SaveCacheFile()
         {
-            if (_cacheStorageLocation != null)
+            try
             {
-                try
-                {
-                    CsvLoader.ToCsvRaw(_marketBoardCache.Values.ToList(), _cacheStorageLocation);
-                }
-                catch (Exception e)
-                {
-                    _pluginLog.Debug(e, messageTemplate: "Failed to save MarketCache.");
-                }
+                // 获取所有缓存的 MarketPricing 对象
+                var pricingsToSave = _marketBoardCache.Values.ToList();
+
+                // 批量保存到数据库
+                _marketPricingDatabase.SaveMarketPricings(pricingsToSave);
+
+                _pluginLog.Verbose("MarketCache saved successfully");
+            }
+            catch (Exception e)
+            {
+                _pluginLog.Error($"Failed to save MarketCache to database: {e.Message}");
             }
         }
-
+        
         public MarketPricing? GetPricing(uint itemId, uint worldId, bool forceCheck)
         {
             GetPricing(itemId, worldId, false, forceCheck, out var pricing);
@@ -226,7 +212,6 @@ namespace CriticalCommonLib.MarketBoard
             }
 
             return prices;
-
         }
 
         private List<uint>? _worldIds;

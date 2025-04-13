@@ -178,11 +178,12 @@ namespace CriticalCommonLib.MarketBoard
 
                             var reader = new StreamReader(webresponse.GetResponseStream());
                             var value = reader.ReadToEnd();
-                            PricingAPIResponse? apiListing = JsonConvert.DeserializeObject<PricingAPIResponse>(value);
+                            UniversalisApiResponse? apiListing = JsonConvert.DeserializeObject<UniversalisApiResponse>(value);
 
                             if (apiListing != null)
                             {
-                                var listing = MarketPricing.FromApi(apiListing, worldId, SaleHistoryLimit);
+                                
+                                var listing = new MarketPricing(apiListing);
                                 _framework.RunOnFrameworkThread(() =>
                                     ItemPriceRetrieved?.Invoke(apiListing.itemID, worldId, listing));
                             }
@@ -236,7 +237,7 @@ namespace CriticalCommonLib.MarketBoard
                             {
                                 foreach (var item in multiRequest.items)
                                 {
-                                    var listing = MarketPricing.FromApi(item.Value, worldId, SaleHistoryLimit);
+                                    var listing = new MarketPricing(item.Value);
                                     _framework.RunOnFrameworkThread(() =>
                                         ItemPriceRetrieved?.Invoke(item.Value.itemID, worldId, listing));
                                 }
@@ -299,11 +300,11 @@ namespace CriticalCommonLib.MarketBoard
 
                             var reader = new StreamReader(webresponse.GetResponseStream());
                             var value = reader.ReadToEnd();
-                            PricingAPIResponse? apiListing = JsonConvert.DeserializeObject<PricingAPIResponse>(value);
+                            UniversalisApiResponse? apiListing = JsonConvert.DeserializeObject<UniversalisApiResponse>(value);
 
                             if (apiListing != null)
                             {
-                                var listing = MarketPricing.FromApi(apiListing, worldId, SaleHistoryLimit);
+                                var listing = new MarketPricing(apiListing);
                                 _framework.RunOnFrameworkThread(() =>
                                     ItemPriceRetrieved?.Invoke(itemId, worldId, listing));
                             }
@@ -349,83 +350,5 @@ namespace CriticalCommonLib.MarketBoard
         }
     }
 
-
-    public class MultiRequest
-    {
-        public string[] itemIDs { internal get; set; }
-        public Dictionary<string,PricingAPIResponse> items { internal get; set; }
-    }
-
-    public class PricingAPIResponse
-    {
-        public uint itemID { internal get; set; }
-        public float averagePriceNQ { get; set; }
-        public float averagePriceHQ { get; set; }
-        public float minPriceNQ { get; set; }
-        public float minPriceHQ { get; set; }
-        public RecentHistory[]? recentHistory;
-        public Listing[]? listings;
-    }
-
-    public class Stacksizehistogram
-    {
-        public int _1 { get; set; }
-    }
-
-    public class Stacksizehistogramnq
-    {
-        public int _1 { get; set; }
-    }
-
-    public class Stacksizehistogramhq
-    {
-        public int _1 { get; set; }
-    }
-
-    public class Listing
-    {
-
-        public int lastReviewTime { get; set; }
-
-        public int pricePerUnit { get; set; }
-
-        public int quantity { get; set; }
-
-        public int stainID { get; set; }
-
-        public string creatorName { get; set; }
-
-        public object creatorID { get; set; }
-
-        public bool hq { get; set; }
-
-        public bool isCrafted { get; set; }
-
-        public object listingID { get; set; }
-
-        public object[] materia { get; set; }
-
-        public bool onMannequin { get; set; }
-
-        public int retainerCity { get; set; }
-
-        public string retainerID { get; set; }
-
-        public string retainerName { get; set; }
-
-        public string sellerID { get; set; }
-
-        public int total { get; set; }
-    }
-
-    public class RecentHistory
-    {
-        public bool hq { get; set; }
-        public int pricePerUnit { get; set; }
-        public int quantity { get; set; }
-        public int timestamp { get; set; }
-        public string buyerName { get; set; }
-        public int total { get; set; }
-    }
 
 }

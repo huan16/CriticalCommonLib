@@ -24,7 +24,7 @@ namespace CriticalCommonLib.MarketBoard
         bool RequestCheck(uint itemId, uint worldId, bool forceCheck);
         void RequestCheck(List<uint> itemIds, List<uint> worldIds, bool forceCheck);
         void RequestCheck(List<uint> itemIds, uint worldId, bool forceCheck);
-        void RequestCheck(uint itemId, List<uint> worldIDs, bool forceCheck);
+        void RequestCheck(uint itemId, List<uint> worldIds, bool forceCheck);
     }
 
     public enum MarketCachePricingResult
