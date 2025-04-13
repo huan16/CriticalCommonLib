@@ -16,4 +16,17 @@ internal static class AllaganThrottle{
     {
         FrameThrottler.Throttle("AllaganMarketGenericThrottle", 8, true);
     }
+
+    internal static void RethrottleGeneric(string id, int num, bool isFrame)
+    {
+        if (isFrame)
+        {
+            FrameThrottler.Throttle(id, 8, true);
+        }
+        else
+        {
+            EzThrottler.Throttle(id, num, true);
+        }
+        
+    }
 }
