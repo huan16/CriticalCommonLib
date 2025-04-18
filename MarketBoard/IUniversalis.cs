@@ -1,10 +1,13 @@
 using System;
+using Microsoft.Extensions.Hosting;
 
 namespace CriticalCommonLib.MarketBoard
 {
-    public interface IUniversalis : IDisposable
+    public interface IUniversalis : IHostedService
     {
-        event Universalis.ItemPriceRetrievedDelegate? ItemPriceRetrieved;
+        public delegate void UniversalisResponseReceivedDelegate(UniversalisApiResponse response);
+
+        public event UniversalisResponseReceivedDelegate? UniversalisResponseReceived;
         int QueuedCount { get; }
         void SetSaleHistoryLimit(int limit);
         void QueuePriceCheck(uint itemId, uint worldId);

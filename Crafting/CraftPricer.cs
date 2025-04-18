@@ -6,9 +6,9 @@ namespace CriticalCommonLib.Crafting;
 
 public class CraftPricer
 {
-    private readonly IMarketCache _marketCache;
+    private readonly IMarketPricingManager _marketCache;
 
-    public CraftPricer(IMarketCache marketCache)
+    public CraftPricer(IMarketPricingManager marketCache)
     {
         this._marketCache = marketCache;
     }
@@ -23,7 +23,7 @@ public class CraftPricer
         var prices = new List<CraftPriceSource>();
         foreach (var listing in marketPricing.listings)
         {
-            var craftPriceSource = new CraftPriceSource(marketPricing.ItemId, (uint)listing.quantity, listing.hq, (uint)listing.pricePerUnit, marketPricing.WorldId );
+            var craftPriceSource = new CraftPriceSource(marketPricing.itemID, (uint)listing.quantity, listing.hq, (uint)listing.pricePerUnit, marketPricing.worldID );
             prices.Add(craftPriceSource);
         }
 

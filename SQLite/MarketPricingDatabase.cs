@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using CriticalCommonLib.MarketBoard;
+using Dalamud.Game.Network.Structures;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using Microsoft.Data.Sqlite;
 using Newtonsoft.Json;
+using static Dalamud.Game.Network.Structures.MarketBoardCurrentOfferings;
 
 namespace CriticalCommonLib.SQLite
 {
@@ -45,19 +48,32 @@ namespace CriticalCommonLib.SQLite
         private void InitializeDatabase()
         {
             connection.Open();
-
             var command = connection.CreateCommand();
             command.CommandText = @"
             CREATE TABLE IF NOT EXISTS MarketPricing (
                 ItemId INTEGER PRIMARY KEY,
                 WorldId INTEGER,
                 LastUploadTime INTEGER,
-                LastSellDate TEXT,
-                LastUpdate TEXT NOT NULL,
                 Available INTEGER DEFAULT 0,
-                UniversalisRecomendationPrice INTEGER DEFAULT 0,
-                MarketBoardRecomendationPrice INTEGER DEFAULT 0,
-                
+
+                UniversalisRecdPrice INTEGER DEFAULT NULL,
+                UniversalisRecdNQPrice INTEGER DEFAULT NULL,
+                UniversalisRecdHQPrice INTEGER DEFAULT NULL,
+
+                MBRecdPrice INTEGER DEFAULT NULL,
+                MBRecdNQPrice INTEGER DEFAULT NULL,
+                MBRecdHQPrice INTEGER DEFAULT NULL,
+
+                MBMaxHQPrice REAL DEFAULT 0,
+                MBMinHQPrice REAL DEFAULT 0,
+                MBAvgHQPrice REAL DEFAULT 0,
+                MBMaxNQPrice REAL DEFAULT 0,
+                MBMinNQPrice REAL DEFAULT 0,
+                MBAvgNQPrice REAL DEFAULT 0,
+
+                MBLastUpdate TEXT,
+                UniversalisLastUpdate TEXT,
+
                 -- UniversalisApiResponse 基础字段
                 CurrentAveragePrice REAL DEFAULT 0,
                 CurrentAveragePriceNQ REAL DEFAULT 0,
@@ -80,8 +96,9 @@ namespace CriticalCommonLib.SQLite
                 UnitsForSale INTEGER DEFAULT 0,
                 UnitsSold INTEGER DEFAULT 0,
                 HasData INTEGER DEFAULT 0,
-                
+
                 -- 序列化字段
+                Offerings TEXT,
                 Listings TEXT,
                 RecentHistory TEXT,
                 StackSizeHistogram TEXT,
@@ -94,87 +111,121 @@ namespace CriticalCommonLib.SQLite
         /// <summary>
         /// 保存或更新市场价格数据
         /// </summary>
-        public void SaveMarketPricing(MarketPricing pricing)
+        private void SaveMarketPricing(MarketPricing pricing)
         {
-            using var transaction = connection.BeginTransaction();
-            try
-            {
-                var command = connection.CreateCommand();
-                command.CommandText = @"
-                INSERT OR REPLACE INTO MarketPricing (
-                    ItemId, WorldId, LastUploadTime, LastSellDate, LastUpdate, Available,
-                    UniversalisRecomendationPrice, MarketBoardRecomendationPrice,
-                    CurrentAveragePrice, CurrentAveragePriceNQ, CurrentAveragePriceHQ,
-                    AveragePrice, AveragePriceNQ, AveragePriceHQ,
-                    MinPrice, MinPriceNQ, MinPriceHQ,
-                    MaxPrice, MaxPriceNQ, MaxPriceHQ,
-                    RegularSaleVelocity, NqSaleVelocity, HqSaleVelocity,
-                    WorldName, ListingsCount, RecentHistoryCount,
-                    UnitsForSale, UnitsSold, HasData,
-                    Listings, RecentHistory,
-                    StackSizeHistogram, StackSizeHistogramNQ, StackSizeHistogramHQ
-                ) VALUES (
-                    @ItemId, @WorldId, @LastUploadTime, @LastSellDate, @LastUpdate, @Available,
-                    @UniversalisRecomendationPrice, @MarketBoardRecomendationPrice,
-                    @CurrentAveragePrice, @CurrentAveragePriceNQ, @CurrentAveragePriceHQ,
-                    @AveragePrice, @AveragePriceNQ, @AveragePriceHQ,
-                    @MinPrice, @MinPriceNQ, @MinPriceHQ,
-                    @MaxPrice, @MaxPriceNQ, @MaxPriceHQ,
-                    @RegularSaleVelocity, @NqSaleVelocity, @HqSaleVelocity,
-                    @WorldName, @ListingsCount, @RecentHistoryCount,
-                    @UnitsForSale, @UnitsSold, @HasData,
-                    @Listings, @RecentHistory,
-                    @StackSizeHistogram, @StackSizeHistogramNQ, @StackSizeHistogramHQ
-                )";
+            var command = connection.CreateCommand();
+            command.CommandText = @"
+            INSERT OR REPLACE INTO MarketPricing (
+                ItemId, WorldId, LastUploadTime, MBLastUpdate, Available,
+                UniversalisRecdPrice, UniversalisRecdNQPrice, UniversalisRecdHQPrice,
+                MBRecdPrice, MBRecdNQPrice, MBRecdHQPrice,
+                MBMaxHQPrice, MBMinHQPrice, MBAvgHQPrice,
+                MBMaxNQPrice, MBMinNQPrice, MBAvgNQPrice,
+                UniversalisLastUpdate,
+                CurrentAveragePrice, CurrentAveragePriceNQ, CurrentAveragePriceHQ,
+                AveragePrice, AveragePriceNQ, AveragePriceHQ,
+                MinPrice, MinPriceNQ, MinPriceHQ,
+                MaxPrice, MaxPriceNQ, MaxPriceHQ,
+                RegularSaleVelocity, NqSaleVelocity, HqSaleVelocity,
+                WorldName, ListingsCount, RecentHistoryCount,
+                UnitsForSale, UnitsSold, HasData,
+                Offerings,
+                Listings, RecentHistory,
+                StackSizeHistogram, StackSizeHistogramNQ, StackSizeHistogramHQ
+            ) VALUES (
+                @ItemId, @WorldId, @LastUploadTime, @MBLastUpdate, @Available,
+                @UniversalisRecdPrice, @UniversalisRecdNQPrice, @UniversalisRecdHQPrice,
+                @MBRecdPrice, @MBRecdNQPrice, @MBRecdHQPrice,
+                @MBMaxHQPrice, @MBMinHQPrice, @MBAvgHQPrice,
+                @MBMaxNQPrice, @MBMinNQPrice, @MBAvgNQPrice,
+                @UniversalisLastUpdate,
+                @CurrentAveragePrice, @CurrentAveragePriceNQ, @CurrentAveragePriceHQ,
+                @AveragePrice, @AveragePriceNQ, @AveragePriceHQ,
+                @MinPrice, @MinPriceNQ, @MinPriceHQ,
+                @MaxPrice, @MaxPriceNQ, @MaxPriceHQ,
+                @RegularSaleVelocity, @NqSaleVelocity, @HqSaleVelocity,
+                @WorldName, @ListingsCount, @RecentHistoryCount,
+                @UnitsForSale, @UnitsSold, @HasData,
+                @Offerings,
+                @Listings, @RecentHistory,
+                @StackSizeHistogram, @StackSizeHistogramNQ, @StackSizeHistogramHQ
+            )";
 
-                // 设置参数
-                command.Parameters.AddWithValue("@ItemId", pricing.itemID);
-                command.Parameters.AddWithValue("@WorldId", pricing.worldID);
-                command.Parameters.AddWithValue("@LastUploadTime", pricing.lastUploadTime);
-                command.Parameters.AddWithValue("@LastSellDate", pricing.LastSellDate?.ToString("o"));
-                command.Parameters.AddWithValue("@LastUpdate", pricing.LastUpdate.ToString("o"));
-                command.Parameters.AddWithValue("@Available", pricing.Available);
-                command.Parameters.AddWithValue("@UniversalisRecomendationPrice", pricing.UniversalisRecomendationPrice);
-                command.Parameters.AddWithValue("@MarketBoardRecomendationPrice", pricing.MarketBoardRecomendationPrice);
+            // 设置参数
+            command.Parameters.AddWithValue("@ItemId", pricing.itemID);
+            command.Parameters.AddWithValue("@WorldId", pricing.worldID);
+            command.Parameters.AddWithValue("@LastUploadTime", pricing.lastUploadTime);
 
-                // UniversalisApiResponse 参数
-                command.Parameters.AddWithValue("@CurrentAveragePrice", pricing.currentAveragePrice);
-                command.Parameters.AddWithValue("@CurrentAveragePriceNQ", pricing.currentAveragePriceNQ);
-                command.Parameters.AddWithValue("@CurrentAveragePriceHQ", pricing.currentAveragePriceHQ);
-                command.Parameters.AddWithValue("@AveragePrice", pricing.averagePrice);
-                command.Parameters.AddWithValue("@AveragePriceNQ", pricing.averagePriceNQ);
-                command.Parameters.AddWithValue("@AveragePriceHQ", pricing.averagePriceHQ);
-                command.Parameters.AddWithValue("@MinPrice", pricing.minPrice);
-                command.Parameters.AddWithValue("@MinPriceNQ", pricing.minPriceNQ);
-                command.Parameters.AddWithValue("@MinPriceHQ", pricing.minPriceHQ);
-                command.Parameters.AddWithValue("@MaxPrice", pricing.maxPrice);
-                command.Parameters.AddWithValue("@MaxPriceNQ", pricing.maxPriceNQ);
-                command.Parameters.AddWithValue("@MaxPriceHQ", pricing.maxPriceHQ);
-                command.Parameters.AddWithValue("@RegularSaleVelocity", pricing.regularSaleVelocity);
-                command.Parameters.AddWithValue("@NqSaleVelocity", pricing.nqSaleVelocity);
-                command.Parameters.AddWithValue("@HqSaleVelocity", pricing.hqSaleVelocity);
-                command.Parameters.AddWithValue("@WorldName", pricing.worldName ?? "");
-                command.Parameters.AddWithValue("@ListingsCount", pricing.listingsCount);
-                command.Parameters.AddWithValue("@RecentHistoryCount", pricing.recentHistoryCount);
-                command.Parameters.AddWithValue("@UnitsForSale", pricing.unitsForSale);
-                command.Parameters.AddWithValue("@UnitsSold", pricing.unitsSold);
-                command.Parameters.AddWithValue("@HasData", pricing.hasData ? 1 : 0);
+            command.Parameters.AddWithValue("@UniversalisLastUpdate", pricing.UniversalisLastUpdate.ToString("o"));
 
-                // 序列化复杂对象
-                command.Parameters.AddWithValue("@Listings", pricing.listings != null ? JsonConvert.SerializeObject(pricing.listings) : "");
-                command.Parameters.AddWithValue("@RecentHistory", pricing.recentHistory != null ? JsonConvert.SerializeObject(pricing.recentHistory) : "");
-                command.Parameters.AddWithValue("@StackSizeHistogram", pricing.stackSizeHistogram != null ? JsonConvert.SerializeObject(pricing.stackSizeHistogram) : "");
-                command.Parameters.AddWithValue("@StackSizeHistogramNQ", pricing.stackSizeHistogramNQ != null ? JsonConvert.SerializeObject(pricing.stackSizeHistogramNQ) : "");
-                command.Parameters.AddWithValue("@StackSizeHistogramHQ", pricing.stackSizeHistogramHQ != null ? JsonConvert.SerializeObject(pricing.stackSizeHistogramHQ) : "");
+            command.Parameters.AddWithValue("@MBLastUpdate", pricing.MBLastUpdate.ToString("o"));
 
-                command.ExecuteNonQuery();
-                transaction.Commit();
-            }
-            catch
-            {
-                transaction.Rollback();
-                throw;
-            }
+            command.Parameters.AddWithValue("@Available", pricing.Available);
+
+            // UniversalisRecdPrice 参数
+            command.Parameters.AddWithValue(
+                "@UniversalisRecdPrice", 
+                pricing.UniversalisRecdPrice.HasValue ? pricing.UniversalisRecdPrice.Value : DBNull.Value);
+            command.Parameters.AddWithValue(
+                "@UniversalisRecdNQPrice", 
+                pricing.UniversalisRecdNQPrice.HasValue ? pricing.UniversalisRecdNQPrice.Value : DBNull.Value);
+            command.Parameters.AddWithValue(
+                "@UniversalisRecdHQPrice", 
+                pricing.UniversalisRecdHQPrice.HasValue ? pricing.UniversalisRecdHQPrice.Value : DBNull.Value);
+            
+            // MBRecdPrice 参数
+            command.Parameters.AddWithValue(
+                "@MBRecdPrice", 
+                pricing.MBRecdPrice.HasValue ? pricing.MBRecdPrice.Value : DBNull.Value);
+            command.Parameters.AddWithValue(
+                "@MBRecdNQPrice", 
+                pricing.MBRecdNQPrice.HasValue ? pricing.MBRecdNQPrice.Value : DBNull.Value);
+            command.Parameters.AddWithValue(
+                "@MBRecdHQPrice", 
+                pricing.MBRecdHQPrice.HasValue ? pricing.MBRecdHQPrice.Value : DBNull.Value);
+            
+            // 新增参数设置
+            command.Parameters.AddWithValue("@MBMaxHQPrice", pricing.MBMaxHQPrice);
+            command.Parameters.AddWithValue("@MBMinHQPrice", pricing.MBMinHQPrice);
+            command.Parameters.AddWithValue("@MBAvgHQPrice", pricing.MBAvgHQPrice);
+            command.Parameters.AddWithValue("@MBMaxNQPrice", pricing.MBMaxNQPrice);
+            command.Parameters.AddWithValue("@MBMinNQPrice", pricing.MBMinNQPrice);
+            command.Parameters.AddWithValue("@MBAvgNQPrice", pricing.MBAvgNQPrice);
+
+            // UniversalisApiResponse 参数
+            command.Parameters.AddWithValue("@CurrentAveragePrice", pricing.currentAveragePrice);
+            command.Parameters.AddWithValue("@CurrentAveragePriceNQ", pricing.currentAveragePriceNQ);
+            command.Parameters.AddWithValue("@CurrentAveragePriceHQ", pricing.currentAveragePriceHQ);
+            command.Parameters.AddWithValue("@AveragePrice", pricing.averagePrice);
+            command.Parameters.AddWithValue("@AveragePriceNQ", pricing.averagePriceNQ);
+            command.Parameters.AddWithValue("@AveragePriceHQ", pricing.averagePriceHQ);
+            command.Parameters.AddWithValue("@MinPrice", pricing.minPrice);
+            command.Parameters.AddWithValue("@MinPriceNQ", pricing.minPriceNQ);
+            command.Parameters.AddWithValue("@MinPriceHQ", pricing.minPriceHQ);
+            command.Parameters.AddWithValue("@MaxPrice", pricing.maxPrice);
+            command.Parameters.AddWithValue("@MaxPriceNQ", pricing.maxPriceNQ);
+            command.Parameters.AddWithValue("@MaxPriceHQ", pricing.maxPriceHQ);
+            command.Parameters.AddWithValue("@RegularSaleVelocity", pricing.regularSaleVelocity);
+            command.Parameters.AddWithValue("@NqSaleVelocity", pricing.nqSaleVelocity);
+            command.Parameters.AddWithValue("@HqSaleVelocity", pricing.hqSaleVelocity);
+            command.Parameters.AddWithValue("@WorldName", pricing.worldName ?? "");
+            command.Parameters.AddWithValue("@ListingsCount", pricing.listingsCount);
+            command.Parameters.AddWithValue("@RecentHistoryCount", pricing.recentHistoryCount);
+            command.Parameters.AddWithValue("@UnitsForSale", pricing.unitsForSale);
+            command.Parameters.AddWithValue("@UnitsSold", pricing.unitsSold);
+            command.Parameters.AddWithValue("@HasData", pricing.hasData ? 1 : 0);
+
+            // 序列化复杂对象
+            command.Parameters.AddWithValue("@Listings", pricing.listings != null ? JsonConvert.SerializeObject(pricing.listings) : "");
+            command.Parameters.AddWithValue("@RecentHistory", pricing.recentHistory != null ? JsonConvert.SerializeObject(pricing.recentHistory) : "");
+            command.Parameters.AddWithValue("@StackSizeHistogram", pricing.stackSizeHistogram != null ? JsonConvert.SerializeObject(pricing.stackSizeHistogram) : "");
+            command.Parameters.AddWithValue("@StackSizeHistogramNQ", pricing.stackSizeHistogramNQ != null ? JsonConvert.SerializeObject(pricing.stackSizeHistogramNQ) : "");
+            command.Parameters.AddWithValue("@StackSizeHistogramHQ", pricing.stackSizeHistogramHQ != null ? JsonConvert.SerializeObject(pricing.stackSizeHistogramHQ) : "");
+
+            command.Parameters.AddWithValue("@Offerings", 
+                pricing.offerings != null ? JsonConvert.SerializeObject(pricing.offerings) : "");
+
+            command.ExecuteNonQuery();
         }
 
         /// <summary>
@@ -250,11 +301,19 @@ namespace CriticalCommonLib.SQLite
                 {
                     itemID = (uint)reader.GetInt32(reader.GetOrdinal("ItemId")),
                     worldID = (uint)reader.GetInt32(reader.GetOrdinal("WorldId")),
-                    lastUploadTime = reader.GetInt64(reader.GetOrdinal("LastUploadTime")),
-                    LastUpdate = DateTime.Parse(reader.GetString(reader.GetOrdinal("LastUpdate"))),
+                    MBLastUpdate = DateTime.Parse(reader.GetString(reader.GetOrdinal("MBLastUpdate"))),
+                    UniversalisLastUpdate = DateTime.Parse(reader.GetString(reader.GetOrdinal("UniversalisLastUpdate"))),
                     Available = reader.GetInt32(reader.GetOrdinal("Available")),
-                    UniversalisRecomendationPrice = (uint)reader.GetInt32(reader.GetOrdinal("UniversalisRecomendationPrice")),
-                    MarketBoardRecomendationPrice = (uint)reader.GetInt32(reader.GetOrdinal("MarketBoardRecomendationPrice")),
+
+                    // UniversalisRecdPrice 字段
+                    UniversalisRecdPrice = reader.IsDBNull(reader.GetOrdinal("UniversalisRecdPrice")) ? null : (uint?)reader.GetInt32(reader.GetOrdinal("UniversalisRecdPrice")),
+                    UniversalisRecdNQPrice = reader.IsDBNull(reader.GetOrdinal("UniversalisRecdNQPrice")) ? null : (uint?)reader.GetInt32(reader.GetOrdinal("UniversalisRecdNQPrice")),
+                    UniversalisRecdHQPrice = reader.IsDBNull(reader.GetOrdinal("UniversalisRecdHQPrice")) ? null : (uint?)reader.GetInt32(reader.GetOrdinal("UniversalisRecdHQPrice")),
+                    
+                    // MBRecdPrice 字段
+                    MBRecdPrice = reader.IsDBNull(reader.GetOrdinal("MBRecdPrice")) ? null : (uint?)reader.GetInt32(reader.GetOrdinal("MBRecdPrice")),
+                    MBRecdNQPrice = reader.IsDBNull(reader.GetOrdinal("MBRecdNQPrice")) ? null : (uint?)reader.GetInt32(reader.GetOrdinal("MBRecdNQPrice")),
+                    MBRecdHQPrice = reader.IsDBNull(reader.GetOrdinal("MBRecdHQPrice")) ? null : (uint?)reader.GetInt32(reader.GetOrdinal("MBRecdHQPrice")),
                     
                     // UniversalisApiResponse 字段
                     currentAveragePrice = (float)reader.GetDouble(reader.GetOrdinal("CurrentAveragePrice")),
@@ -279,13 +338,6 @@ namespace CriticalCommonLib.SQLite
                     unitsSold = reader.GetInt32(reader.GetOrdinal("UnitsSold")),
                     hasData = reader.GetInt32(reader.GetOrdinal("HasData")) == 1
                 };
-
-                // 处理可空的 LastSellDate
-                var lastSellDateOrdinal = reader.GetOrdinal("LastSellDate");
-                if (!reader.IsDBNull(lastSellDateOrdinal))
-                {
-                    pricing.LastSellDate = DateTime.Parse(reader.GetString(lastSellDateOrdinal));
-                }
 
                 // 反序列化复杂对象
                 var listingsStr = reader.GetString(reader.GetOrdinal("Listings"));
@@ -316,6 +368,17 @@ namespace CriticalCommonLib.SQLite
                 if (!string.IsNullOrEmpty(stackSizeHistogramHQStr))
                 {
                     pricing.stackSizeHistogramHQ = JsonConvert.DeserializeObject<Dictionary<string, int>>(stackSizeHistogramHQStr);
+                }
+
+                var offeringsStr = reader.GetString(reader.GetOrdinal("Offerings"));
+                if (!string.IsNullOrEmpty(offeringsStr))
+                {
+                    var items = JsonConvert.DeserializeObject<List<MarketBoardItemListing>>(offeringsStr);
+                    pricing.offerings = items?.Cast<IMarketBoardItemListing>().ToList() ?? new List<IMarketBoardItemListing>();
+                }
+                else
+                {
+                    pricing.offerings = new List<IMarketBoardItemListing>();
                 }
 
                 return pricing;

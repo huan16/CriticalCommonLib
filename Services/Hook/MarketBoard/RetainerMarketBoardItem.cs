@@ -22,9 +22,7 @@ namespace CriticalCommonLib.Services.Hook
         private Hook<ItemMarketBoardInfoData>? _itemMarketBoardInfoHook;
         
         private ItemMarketBoardInfo[] itemMarketBoardInfos = new ItemMarketBoardInfo[20];
-
-        public delegate void RetainerMarketBoardItemReceived(ulong retainerId, ItemMarketBoardInfo[] itemMarketBoardInfos);
-        public event RetainerMarketBoardItemReceived? retainerMarketBoardItemReceived;
+        public ItemMarketBoardInfo[] ItemMarketBoardInfos => itemMarketBoardInfos;
 
         public RetainerMarketBoardItem(
             ICharacterMonitor characterMonitor,
@@ -45,12 +43,6 @@ namespace CriticalCommonLib.Services.Hook
             {
                 if (a3 != null)
                 {
-                    var currentRetainerId = _characterMonitor.ActiveRetainerId;
-                    if (currentRetainerId == 0)
-                    {
-                        return _itemMarketBoardInfoHook!.Original(seq, a3);
-                    }
-
                     var ptr = (IntPtr)a3 + 16;
                     var containerInfo = NetworkDecoder.DecodeItemMarketBoardInfo(ptr);
                     // _pluginLog.Debug($"ItemMarketBoardInfo: {containerInfo.Sequence} {containerInfo.ContainerId} {containerInfo.Slot} {containerInfo.UnitPrice}");
@@ -68,8 +60,6 @@ namespace CriticalCommonLib.Services.Hook
                         // 将数据存入对应槽位并记录日志
                         itemMarketBoardInfos[containerInfo.Slot] = containerInfo;
                     }
-
-                    retainerMarketBoardItemReceived?.Invoke(currentRetainerId, itemMarketBoardInfos);
                 }
             }
             catch (Exception e)
@@ -87,7 +77,7 @@ namespace CriticalCommonLib.Services.Hook
 
         public void Dispose()
         {
-            Dispose(disposing: true);
+            Dispose(true);
             GC.SuppressFinalize(this);
         }
 

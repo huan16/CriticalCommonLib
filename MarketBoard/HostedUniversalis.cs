@@ -13,18 +13,19 @@ using Lumina.Excel.Sheets;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using static CriticalCommonLib.MarketBoard.IUniversalis;
 
 namespace CriticalCommonLib.MarketBoard;
 
 /// <summary>
 /// 负责与Universalis API交互的后台服务，管理市场板价格查询队列和异步请求处理。
 /// </summary>
-public class HostedUniversalis : BackgroundService, IUniversalis
+public class HostedUniversalis : IUniversalis
 {
     private readonly ExcelSheet<World> _worldSheet;
     private readonly IFramework _framework;
-    private readonly IHostedUniversalisConfiguration _hostedUniversalisConfiguration;
-    public ILogger<HostedUniversalis> Logger { get; }
+    private readonly UniversalisConfiguration _universalisConfiguration;
+    public IPluginLog pluginLog { get; }
     public HttpClient HttpClient { get; }
     public IBackgroundTaskQueue UniversalisQueue { get; }
     private Dictionary<uint, string> _worldNames = new();
@@ -37,17 +38,17 @@ public class HostedUniversalis : BackgroundService, IUniversalis
 
 
     public HostedUniversalis(
-        ILogger<HostedUniversalis> logger, 
+        IPluginLog pluginLog, 
         HttpClient httpClient, 
-        MarketboardTaskQueue marketboardTaskQueue, 
+        IBackgroundTaskQueue marketboardTaskQueue, 
         ExcelSheet<World> worldSheet, 
         IFramework framework, 
-        IHostedUniversalisConfiguration hostedUniversalisConfiguration)
+        UniversalisConfiguration universalisConfiguration)
     {
         _worldSheet = worldSheet;
         _framework = framework;
-        _hostedUniversalisConfiguration = hostedUniversalisConfiguration;
-        Logger = logger;
+        _universalisConfiguration = universalisConfiguration;
+        this.pluginLog = pluginLog;
         HttpClient = httpClient;
         UniversalisQueue = marketboardTaskQueue;
 
@@ -68,9 +69,37 @@ public class HostedUniversalis : BackgroundService, IUniversalis
         }
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    private Task? _executingTask;
+    private readonly CancellationTokenSource _stoppingCts = new();
+
+    public Task StartAsync(CancellationToken stoppingToken)
+    {
+        _framework.Update += FrameworkOnUpdate;
+        _executingTask = ExecuteAsync(_stoppingCts.Token);
+        return _executingTask.IsCompleted ? _executingTask : Task.CompletedTask;
+    }
+
+    private async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await BackgroundProcessing(stoppingToken);
+    }
+
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        if (_executingTask == null)
+        {
+            return;
+        }
+
+        try
+        {
+            _framework.Update -= FrameworkOnUpdate;
+            _stoppingCts.Cancel();
+        }
+        finally
+        {
+            await Task.WhenAny(_executingTask, Task.Delay(Timeout.Infinite, cancellationToken));
+        }
     }
 
     private async Task BackgroundProcessing(CancellationToken stoppingToken)
@@ -86,18 +115,16 @@ public class HostedUniversalis : BackgroundService, IUniversalis
             }
             catch (Exception ex)
             {
-                Logger.LogError(ex,
+                pluginLog.Error(ex,
                     "Error occurred executing {WorkItem}.", nameof(workItem));
             }
         }
     }
 
-    public event Universalis.ItemPriceRetrievedDelegate? ItemPriceRetrieved;
-    public void SetSaleHistoryLimit(int limit)
-    {
-    }
 
-    public void Initialise()
+    public event UniversalisResponseReceivedDelegate? UniversalisResponseReceived;
+
+    public void SetSaleHistoryLimit(int limit)
     {
     }
 
@@ -136,13 +163,9 @@ public class HostedUniversalis : BackgroundService, IUniversalis
 
     private int _queuedCount;
 
-    /// <summary>
-    /// 执行实际的Universalis API请求，处理价格数据并触发回调。
-    /// </summary>
-    /// <param name="itemIds">需要查询的物品ID列表</param>
-    /// <param name="worldId">目标服务器ID</param>
-    /// <param name="token">取消标记</param>
-    /// <param name="attempt">当前重试次数</param>
+    private readonly SemaphoreSlim _rateLimiter = new SemaphoreSlim(50, 50);
+    private readonly TimeSpan _rateLimitInterval = TimeSpan.FromSeconds(1);
+
     private async Task RetrieveMarketBoardPrices(IEnumerable<uint> itemIds, uint worldId, CancellationToken token, uint attempt = 0)
     {
         if (token.IsCancellationRequested)
@@ -153,100 +176,111 @@ public class HostedUniversalis : BackgroundService, IUniversalis
         if (attempt == MaxRetries)
         {
             _queuedCount -= itemIdList.Count;
-            Logger.LogError($"Maximum retries for universalis has been reached, cancelling.");
+            pluginLog.Error($"Maximum retries for universalis has been reached, cancelling.");
             return;
         }
 
-        string worldName;
-        if (!_worldNames.ContainsKey(worldId))
-        {
-            var world = GetWorldName(worldId);
-            if (world == null)
-            {
-                _queuedCount -= itemIdList.Count;
-                return;
-            }
-            _worldNames[worldId] = world;
-        }
-        worldName = _worldNames[worldId];
-
-        var itemIdsString = String.Join(",", itemIdList.Select(c => c.ToString()).ToArray());
-        Logger.LogTrace("Sending request for items {ItemIds} to universalis API.", itemIdsString);
-        // 构造API请求URL
-        var apiRequestBuilder = new UniversalisApiBuilder(worldName)
-            .AddItemIds(itemIds)
-            .WithListings(30)
-            .WithEntries(30)
-            .WithStatsWithin(4 * 604800000L) // 7天 = 604800000ms
-            .WithEntriesWithin(4 * 604800000L)
-            .WithUserAgent("MyCustomClient/1.0");
-
-        var (requestUrl, _) = apiRequestBuilder.Build();
-
+        // 使用速率限制器
+        await _rateLimiter.WaitAsync(token);
         try
         {
-            if (token.IsCancellationRequested)
+            string worldName;
+            if (!_worldNames.ContainsKey(worldId))
             {
-                return;
-            }
-
-            var response = await HttpClient.GetAsync(requestUrl, token);
-
-            if (response.StatusCode == HttpStatusCode.TooManyRequests)
-            {
-                Logger.LogWarning("Too many requests to universalis, waiting a minute.");
-                TooManyRequests = true;
-                await Task.Delay(TimeSpan.FromMinutes(1));
-                await RetrieveMarketBoardPrices(itemIdList, worldId, token, attempt + 1);
-                return;
-            }
-
-            TooManyRequests = false;
-
-            var value = await response.Content.ReadAsStringAsync(token);
-
-            if (value == "error code: 504")
-            {
-                Logger.LogWarning("Gateway timeout to universalis, waiting 30 seconds.");
-                LastFailure = DateTime.Now;
-                await Task.Delay(TimeSpan.FromSeconds(30));
-                await RetrieveMarketBoardPrices(itemIdList, worldId, token, attempt + 1);
-                return;
-            }
-
-            // 解析响应数据
-            var itemsDict = ParseResponse(value, itemIdList.Count == 1);
-            if (itemsDict != null)
-            {
-                foreach (var apiResponse in itemsDict.Values)
+                var world = GetWorldName(worldId);
+                if (world == null)
                 {
-                    var listing = new MarketPricing(apiResponse);
-                    await _framework.RunOnFrameworkThread(() =>
-                        ItemPriceRetrieved?.Invoke(apiResponse.itemID, worldId, listing));
+                    _queuedCount -= itemIdList.Count;
+                    return;
+                }
+                _worldNames[worldId] = world;
+            }
+            worldName = _worldNames[worldId];
+
+            var itemIdsString = String.Join(",", itemIdList.Select(c => c.ToString()).ToArray());
+            pluginLog.Verbose("Sending request for items {ItemIds} to universalis API.", itemIdsString);
+
+            // 构造API请求URL
+            var apiRequestBuilder = new UniversalisApiBuilder(worldName)
+                .AddItemIds(itemIds)
+                .WithListings(_universalisConfiguration.ListingsCount)
+                .WithEntries(_universalisConfiguration.EntrisCount)
+                .WithStatsWithin(_universalisConfiguration.StatsWithin) // 7天 = 604800000ms
+                .WithEntriesWithin(_universalisConfiguration.EntrisWithin)
+                .WithUserAgent("MyCustomClient/1.0");
+            var (requestUrl, _) = apiRequestBuilder.Build();
+
+            try
+            {
+                if (token.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                var response = await HttpClient.GetAsync(requestUrl, token);
+
+                if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    pluginLog.Warning("Too many requests to universalis, waiting a minute.");
+                    TooManyRequests = true;
+                    await Task.Delay(TimeSpan.FromMinutes(1));
+                    await RetrieveMarketBoardPrices(itemIdList, worldId, token, attempt + 1);
+                    return;
+                }
+
+                TooManyRequests = false;
+
+                var value = await response.Content.ReadAsStringAsync(token);
+
+                if (value == "error code: 504")
+                {
+                    pluginLog.Warning("Gateway timeout to universalis, waiting 30 seconds.");
+                    LastFailure = DateTime.Now;
+                    await Task.Delay(TimeSpan.FromSeconds(30));
+                    await RetrieveMarketBoardPrices(itemIdList, worldId, token, attempt + 1);
+                    return;
+                }
+
+                // 解析响应数据
+                var itemsDict = ParseResponse(value, itemIdList.Count == 1);
+                if (itemsDict != null)
+                {
+                    foreach (var apiResponse in itemsDict.Values)
+                    {
+                        await _framework.RunOnFrameworkThread(() =>
+                            UniversalisResponseReceived?.Invoke(apiResponse));
+                    }
+                }
+                else
+                {
+                    pluginLog.Error("Failed to parse universalis json data, backing off 30 seconds.");
+                    LastFailure = DateTime.Now;
+                    await Task.Delay(TimeSpan.FromSeconds(30));
                 }
             }
-            else
+            catch (TaskCanceledException)
             {
-                Logger.LogError("Failed to parse universalis json data, backing off 30 seconds.");
+                // 忽略取消异常
+            }
+            catch (JsonReaderException readerException)
+            {
+                // 记录解析错误并重试
+                pluginLog.Error(readerException, "Failed to parse universalis data, backing off 30 seconds");
                 LastFailure = DateTime.Now;
                 await Task.Delay(TimeSpan.FromSeconds(30));
             }
-        }
-        catch (TaskCanceledException)
-        {
-
-        }
-        catch (JsonReaderException readerException)
-        {
-            // 记录解析错误并重试
-            Logger.LogError(readerException, "Failed to parse universalis data, backing off 30 seconds");
-            LastFailure = DateTime.Now;
-            await Task.Delay(TimeSpan.FromSeconds(30));
+            finally
+            {
+                // 确保计数器正确更新
+                _queuedCount -= itemIdList.Count;
+            }
         }
         finally
         {
-            // 确保计数器正确更新
-            _queuedCount -= itemIdList.Count;
+            // 释放速率限制器
+            _rateLimiter.Release();
+            // 等待速率限制间隔
+            await Task.Delay(_rateLimitInterval, token);
         }
     }
 
@@ -274,20 +308,5 @@ public class HostedUniversalis : BackgroundService, IUniversalis
             var world = _worldSheet.GetRowOrDefault(id);
             return world?.Name.ExtractText() ?? string.Empty;
         });
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (disposing)
-        {
-            _framework.Update -= FrameworkOnUpdate;
-        }
-    }
-
-    public sealed override void Dispose()
-    {
-        Dispose(true);
-        base.Dispose();
-        GC.SuppressFinalize(this);
     }
 }

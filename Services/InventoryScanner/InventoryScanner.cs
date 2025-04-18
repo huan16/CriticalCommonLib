@@ -376,18 +376,6 @@ namespace CriticalCommonLib.Services
                     InMemory.Remove(InventoryType.HousingInteriorAppearance);
                 }
             }
-            if (windowName is WindowName.FreeCompany or WindowName.FreeCompanyCreditShop && isWindowVisible.HasValue)
-            {
-                if (isWindowVisible.Value)
-                {
-                    _loadedInventories.Add((InventoryType)Enums.InventoryType.FreeCompanyCurrency);
-                }
-                else
-                {
-                    _loadedInventories.Remove((InventoryType)Enums.InventoryType.FreeCompanyCurrency);
-                    InMemory.Remove((InventoryType)Enums.InventoryType.FreeCompanyCurrency);
-                }
-            }
         }
 
         private void CharacterMonitorOnOnCharacterUpdated(Character? character)

@@ -20,12 +20,21 @@ namespace CriticalCommonLib.Services
         public delegate void CharacterLoginEventDelegate(ulong characterId);
         public event CharacterLoginEventDelegate? OnCharacterLoggedIn;
         public event CharacterLoginEventDelegate? OnCharacterLoggedOut;
+
+        void LoadExistingData(Dictionary<ulong, Character> characters);
+
+        List<Character> GetRetainers(ulong character);
         KeyValuePair<ulong, Character>[] GetPlayerCharacters();
         KeyValuePair<ulong, Character>[] GetFreeCompanies();
         KeyValuePair<ulong, Character>[] GetHouses();
         KeyValuePair<ulong, Character>[] AllCharacters();
         KeyValuePair<ulong, Character>[] GetFreeCompanyCharacters(ulong freeCompanyId);
         HashSet<uint> GetWorldIds();
+        HashSet<uint> GetWorldIds(CharacterType characterType);
+        public List<Character> GetCharactersByType(CharacterType characterType, uint? worldId);
+        public List<Character> GetOwnedCharacters(ulong ownerId, CharacterType characterType);
+        public bool IsCharacterKnown(ulong characterId);
+        public bool IsCharacterKnown(string characterName, uint worldId);
         Dictionary<ulong, Character> Characters { get; }
         Character? GetCharacterByName(string name, ulong ownerId);
         bool BelongsToActiveCharacter(ulong characterId);
@@ -43,6 +52,7 @@ namespace CriticalCommonLib.Services
         public string GetCharacterNameById(ulong characterId, bool owner = false);
 
         void LoadExistingRetainers(Dictionary<ulong, Character> characters);
+        uint ActiveWorldId { get; }
         ulong ActiveRetainerId { get; }
         ulong ActiveCharacterId { get; }
         ulong ActiveHouseId { get; }
