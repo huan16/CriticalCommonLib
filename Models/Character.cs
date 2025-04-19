@@ -19,7 +19,7 @@ using Newtonsoft.Json;
 
 namespace CriticalCommonLib.Models
 {
-    public class Character
+    public class Character : IEquatable<Character>
     {
         private readonly ExcelSheet<World> _worldSheet;
         private readonly ClassJobSheet _classJobSheet;
@@ -40,7 +40,8 @@ namespace CriticalCommonLib.Models
         private string? _freeCompanyName = "";
         public string? AlternativeName = null;
         public ulong OwnerId;
-
+        public byte DisplayOrder { get; set; }
+        public uint ClassJobId { get; set; }
         /// <summary>
         /// The home world ID
         /// </summary>
@@ -235,6 +236,8 @@ namespace CriticalCommonLib.Models
         [JsonIgnore]
         public TerritoryType? Territory => _territoryTypeSheet.GetRowOrDefault(TerritoryTypeId);
 
+        public RetainerManager.RetainerTown? RetainerTown { get; set; }
+
         public string FreeCompanyName
         {
             get
@@ -395,6 +398,7 @@ namespace CriticalCommonLib.Models
                 HireOrder = hireOrder;
                 hasChanges = true;
             }
+            
             if (Level != retainerInformation.Level)
             {
                 Level = retainerInformation.Level;
@@ -449,6 +453,57 @@ namespace CriticalCommonLib.Models
             }
 
             return hasChanges;
+        }
+
+        public bool Equals(Character? other)
+        {
+            if (other is null)
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return this.CharacterId == other.CharacterId && this.CharacterType == other.CharacterType &&
+                this.OwnerId == other.OwnerId && this.Name == other.Name && this.WorldId == other.WorldId &&
+                other.RetainerTown == this.RetainerTown &&
+                other.ClassJobId == this.ClassJobId && other.Level == this.Level;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (obj is null)
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, obj))
+            {
+                return true;
+            }
+
+            if (obj.GetType() != this.GetType())
+            {
+                return false;
+            }
+
+            return this.Equals((Character)obj);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(
+                this.CharacterId,
+                (int)this.CharacterType,
+                this.OwnerId,
+                this.WorldId,
+                this.ClassJobId,
+                this.Level,
+                this.RetainerTown,
+                this.Name);
         }
 
         public unsafe bool UpdateFromCurrentHouse(HousingManager* housingManager,
@@ -563,8 +618,8 @@ namespace CriticalCommonLib.Models
 
     public enum CharacterType
     {
-        Character,
-        Retainer,
+        Character = 0,
+        Retainer = 1,
         FreeCompanyChest,
         Housing,
         Unknown,

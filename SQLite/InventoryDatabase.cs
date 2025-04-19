@@ -15,6 +15,8 @@ using Autofac;
 using Lumina;
 using Dalamud.Plugin;
 using System.IO;
+using ECommons.Logging;
+using Dalamud.Plugin.Services;
 
 namespace CriticalCommonLib.SQLite
 {
@@ -30,25 +32,36 @@ namespace CriticalCommonLib.SQLite
         {
             get
             {
-                return Path.Join(pluginInterface.ConfigDirectory.FullName, "InventoryDatabase.db");
+                var pluginRootDirectory = Path.GetDirectoryName(pluginInterface.ConfigDirectory.FullName) ?? string.Empty;
+
+                var sharedDir = Path.Combine(pluginRootDirectory, "InventoryTools");
+
+                return Path.Combine(sharedDir, "InventoryDatabase.db");
             }
         }
 
         public InventoryDatabase(
             IDalamudPluginInterface pluginInterface,
             IComponentContext componentContext, 
+            IPluginLog pluginLog,
             GameData gameData)
         {
-            // 初始化SQLite
-            SQLitePCL.Batteries.Init();
-
             this.componentContext = componentContext;
             this.gameData = gameData;
             this.pluginInterface = pluginInterface;
 
             // 创建数据库文件
-            connection = new SqliteConnection($"Data Source={DatabasePath}");
-            InitializeDatabase();
+            if (!Directory.Exists(Path.GetDirectoryName(DatabasePath)))
+            {
+                throw new DirectoryNotFoundException("共享数据库目录未找到");
+            }
+            else
+            {
+                // 初始化SQLite
+                SQLitePCL.Batteries.Init();
+                connection = new SqliteConnection($"Data Source={DatabasePath}");
+                InitializeDatabase();
+            }
         }
 
         private void InitializeDatabase()

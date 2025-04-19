@@ -6,9 +6,9 @@ namespace CriticalCommonLib.Crafting;
 
 public class CraftPricer
 {
-    private readonly IMarketCache _marketCache;
+    private readonly IMarketPricingManager _marketCache;
 
-    public CraftPricer(IMarketCache marketCache)
+    public CraftPricer(IMarketPricingManager marketCache)
     {
         this._marketCache = marketCache;
     }

@@ -29,7 +29,13 @@ namespace CriticalCommonLib.Services
         private bool _isFreeCompanyLoaded;
         private bool _isHouseLoaded;
         private bool _initialCheck;
-        public CharacterMonitor(IFramework framework, IClientState clientState, TerritoryTypeSheet territorySheet, Character.Factory characterFactory, IPluginLog pluginLog)
+
+        public CharacterMonitor(
+            IFramework framework, 
+            IClientState clientState, 
+            TerritoryTypeSheet territorySheet, 
+            Character.Factory characterFactory, 
+            IPluginLog pluginLog)
         {
             _framework = framework;
             _clientState = clientState;
@@ -38,6 +44,7 @@ namespace CriticalCommonLib.Services
             _pluginLog = pluginLog;
             _territoryMap = new Dictionary<uint, uint>();
             _characters = new Dictionary<ulong, Character>();
+
             _framework.Update += FrameworkOnOnUpdateEvent;
         }
 
@@ -61,6 +68,17 @@ namespace CriticalCommonLib.Services
             {
                 return _clientState.LocalContentId;
             }
+        }
+
+        public void LoadExistingData(Dictionary<ulong, Character> characters)
+        {
+            this._characters = characters;
+        }
+
+        public List<Character> GetRetainers(ulong character)
+        {
+            return Characters.Where(c => c.Value.CharacterType == CharacterType.Retainer && c.Value.OwnerId == character).Select(c => c.Value)
+                    .ToList();
         }
 
         public void UpdateCharacter(Character character)
@@ -142,6 +160,38 @@ namespace CriticalCommonLib.Services
         {
             return Characters.Select(c => c.Value.WorldId).ToHashSet();
         }
+
+        public HashSet<uint> GetWorldIds(CharacterType characterType)
+        {
+            return this.Characters.Where(c => c.Value.CharacterType == characterType).Select(c => c.Value.WorldId)
+                    .Distinct().ToHashSet();
+        }
+
+        public List<Character> GetCharactersByType(CharacterType characterType, uint? worldId)
+        {
+            return this.Characters
+                    .Where(
+                        c => c.Value.CharacterType == characterType && (worldId == null || c.Value.WorldId == worldId))
+                    .Select(c => c.Value).ToList();
+        }
+
+        public List<Character> GetOwnedCharacters(ulong ownerId, CharacterType characterType)
+        {
+            return this.Characters.Where(c => c.Value.OwnerId == ownerId && c.Value.CharacterType == characterType)
+                    .Select(c => c.Value).ToList();
+        }
+
+
+        public bool IsCharacterKnown(ulong characterId)
+        {
+            return Characters.ContainsKey(characterId);
+        }
+
+        public bool IsCharacterKnown(string characterName, uint worldId)
+        {
+            return Characters.Any(c => c.Value.Name == characterName && c.Value.WorldId == worldId);
+        }
+
 
         public Dictionary<ulong, Character> Characters => _characters;
 
@@ -607,6 +657,7 @@ namespace CriticalCommonLib.Services
 
         public ulong InternalCharacterId => _clientState.LocalPlayer != null ? _clientState.LocalContentId : 0;
 
+        public uint ActiveWorldId => _clientState.LocalPlayer != null ? _clientState.LocalPlayer.HomeWorld.RowId : 0; 
         public bool IsRetainerLoaded => _isRetainerLoaded;
         public ulong ActiveRetainerId => _activeRetainerId;
         public ulong ActiveCharacterId => _activeCharacterId;
@@ -792,19 +843,23 @@ namespace CriticalCommonLib.Services
 
         private unsafe void UpdateRetainers(DateTime lastUpdateTime)
         {
-
             var retainerManager = RetainerManager.Instance();
             if (retainerManager == null)
             {
                 return;
             }
+
             if (_clientState.LocalPlayer == null || retainerManager->Ready != 1)
+            {
                 return;
+            }
+
             if (_lastRetainerCheck == null)
             {
                 _lastRetainerCheck = lastUpdateTime;
                 return;
             }
+
             if (_lastRetainerCheck.Value.AddSeconds(2) <= lastUpdateTime)
             {
                 _lastRetainerCheck = null;
@@ -819,15 +874,21 @@ namespace CriticalCommonLib.Services
                         if (retainerInformation.RetainerId != 0)
                         {
                             Character character;
+                            var displayOrder = RetainerManager.Instance()->DisplayOrder.IndexOf((byte)i);
+                            displayOrder = displayOrder == -1 ? 0 : displayOrder;
+                            var asByte = (byte)displayOrder;
+
                             if (_characters.ContainsKey(retainerInformation.RetainerId))
                             {
                                 character = _characters[retainerInformation.RetainerId];
+                                _characters[retainerInformation.RetainerId].DisplayOrder = asByte;
                             }
                             else
                             {
                                 character = _characterFactory.Invoke();
                                 character.CharacterId = retainerInformation.RetainerId;
                                 _characters[retainerInformation.RetainerId] = character;
+                                _characters[retainerInformation.RetainerId].DisplayOrder = asByte;
                             }
 
                             if (character.UpdateFromRetainerInformation(retainerInformation, currentCharacter, i))
@@ -982,6 +1043,7 @@ namespace CriticalCommonLib.Services
                 RefreshActiveCharacter();
                 _initialCheck = true;
             }
+
             UpdateRetainers(framework.LastUpdate);
             UpdateFreeCompany(framework.LastUpdate);
             UpdateHouses(framework.LastUpdate);
