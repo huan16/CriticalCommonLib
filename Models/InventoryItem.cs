@@ -66,38 +66,6 @@ namespace CriticalCommonLib.Models
             _stainSheet = stainSheet;
         }
 
-        public void FromSerializedItem(ulong[] serializedItem)
-        {
-            var gearSetLengh = serializedItem.Length - 25;
-            var gearSets = gearSetLengh > 0 ? new ArraySegment<ulong>(serializedItem, 25, serializedItem.Length - 25).Select(i => (uint)i).ToArray() : null;
-
-            Container = (InventoryType)serializedItem[0];
-            Slot = (short)serializedItem[1];
-            ItemId = (uint)serializedItem[2];
-            Quantity = (uint)serializedItem[3];
-            Spiritbond = (ushort)serializedItem[4];
-            Condition = (ushort)serializedItem[5];
-            Flags = (FFXIVClientStructs.FFXIV.Client.Game.InventoryItem.ItemFlags)serializedItem[6];
-            Materia0 = (ushort)serializedItem[7];
-            Materia1 = (ushort)serializedItem[8];
-            Materia2 = (ushort)serializedItem[9];
-            Materia3 = (ushort)serializedItem[10];
-            Materia4 = (ushort)serializedItem[11];
-            MateriaLevel0 = (byte)serializedItem[12];
-            MateriaLevel1 = (byte)serializedItem[13];
-            MateriaLevel2 = (byte)serializedItem[14];
-            MateriaLevel3 = (byte)serializedItem[15];
-            MateriaLevel4 = (byte)serializedItem[16];
-            Stain = (byte)serializedItem[17];
-            Stain2 = (byte)serializedItem[18];
-            GlamourId = (uint)serializedItem[19];
-            SortedContainer = (InventoryType)serializedItem[20];
-            SortedCategory = (InventoryCategory)serializedItem[21];
-            SortedSlotIndex = (int)serializedItem[22];
-            RetainerId = (uint)serializedItem[23];
-            RetainerMarketPrice = (uint)serializedItem[24];
-            GearSets = gearSets;
-        }
         public void FromInventoryItem(InventoryItem inventoryItem)
         {
             Container = inventoryItem.Container;
@@ -124,6 +92,7 @@ namespace CriticalCommonLib.Models
             SortedCategory = inventoryItem.SortedCategory;
             SortedSlotIndex = inventoryItem.SortedSlotIndex;
         }
+
         public void FromGameItem(FFXIVClientStructs.FFXIV.Client.Game.InventoryItem inventoryItem)
         {
             Container = inventoryItem.Container.Convert();
@@ -180,7 +149,11 @@ namespace CriticalCommonLib.Models
         public bool InRetainer => RetainerId.ToString().StartsWith("3");
 
         [JsonIgnore]
-        public bool IsEquippedGear => Container is InventoryType.ArmoryBody or InventoryType.ArmoryEar or InventoryType.ArmoryFeet or InventoryType.ArmoryHand or InventoryType.ArmoryHead or InventoryType.ArmoryLegs or InventoryType.ArmoryLegs or InventoryType.ArmoryMain or InventoryType.ArmoryNeck or InventoryType.ArmoryOffHand or InventoryType.ArmoryRing or InventoryType.ArmoryWaist or InventoryType.ArmoryWrist or InventoryType.GearSet0 or InventoryType.RetainerEquippedGear;
+        public bool IsEquippedGear => Container.IsEquipped();
+        [JsonIgnore]
+        public bool IsGearSet => GearSets?.Any() ?? false;
+        [JsonIgnore]
+        public bool IsArmory => Container.IsArmory();
 
         [JsonIgnore]
         public int ActualSpiritbond => Spiritbond / 100;

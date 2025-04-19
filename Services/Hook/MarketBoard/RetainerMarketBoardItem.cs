@@ -9,7 +9,6 @@ namespace CriticalCommonLib.Services.Hook
 {
     public class RetainerMarketBoardItem : IDisposable
     {
-        private readonly ICharacterMonitor _characterMonitor;
         private readonly IPluginLog _pluginLog;
         private readonly IGameInteropProvider _gameInteropProvider;
         private uint _currentSequenceId;
@@ -25,11 +24,9 @@ namespace CriticalCommonLib.Services.Hook
         public ItemMarketBoardInfo[] ItemMarketBoardInfos => itemMarketBoardInfos;
 
         public RetainerMarketBoardItem(
-            ICharacterMonitor characterMonitor,
             IPluginLog pluginLog,
             IGameInteropProvider gameInteropProvider)
         {
-            _characterMonitor = characterMonitor;
             _pluginLog = pluginLog;
             _gameInteropProvider = gameInteropProvider;
             

@@ -28,6 +28,32 @@ namespace CriticalCommonLib.Enums {
         private static readonly Dictionary<InventoryType, InventoryCategory> _categoryCache = new();
         private static readonly Dictionary<InventoryType, string> _displayNameCache = new();
         private static readonly Dictionary<InventoryType, string> _detailedNameCache = new();
+        private static readonly Dictionary<InventoryType, uint> _retainerSellAtkValueCache =
+            new()
+            {
+                {InventoryType.Crystal, 9},
+                {InventoryType.RetainerCrystal, 17},
+                {InventoryType.Bag0, 48},
+                {InventoryType.Bag1, 49},
+                {InventoryType.Bag2, 50},
+                {InventoryType.Bag3, 51},
+                {InventoryType.RetainerBag0, 52},
+                {InventoryType.RetainerBag1, 53},
+                {InventoryType.RetainerBag2, 54},
+                {InventoryType.RetainerBag3, 55},
+                {InventoryType.RetainerBag4, 56},
+                {InventoryType.ArmoryMain, 57},
+                {InventoryType.ArmoryHead, 58},
+                {InventoryType.ArmoryBody, 59},
+                {InventoryType.ArmoryHand, 60},
+                {InventoryType.ArmoryLegs, 61},
+                {InventoryType.ArmoryFeet, 62},
+                {InventoryType.ArmoryOffHand, 63},
+                {InventoryType.ArmoryEar, 64},
+                {InventoryType.ArmoryNeck, 65},
+                {InventoryType.ArmoryWaist, 66},
+                {InventoryType.ArmoryRing, 67}
+            };
 
         static InventoryTypeExtensions()
         {
@@ -59,6 +85,47 @@ namespace CriticalCommonLib.Enums {
         {
             return (uint)type >= 1000 && (uint)type <= 1001;
         }
+
+        public static bool IsRetainerBag(this InventoryType type)
+            => (uint)type >= 10000 && (uint)type <= 10006;
+
+        public static FFXIVClientStructs.FFXIV.Client.Game.InventoryType ToGameType(this InventoryType type)
+        {
+            return (FFXIVClientStructs.FFXIV.Client.Game.InventoryType)(int)type;
+        }
+
+        public static uint GetRetainerSellAtkValue(this InventoryType type, short? slot = null)
+        {
+            if (type.IsRetainerBag())
+            {
+                if (slot == null)
+                {
+                    throw new ArgumentNullException(nameof(slot));
+                }
+
+                uint enumUintValue = (uint)type;
+                uint absoluteIndex = (enumUintValue - 10000) * 25 + (uint)slot.Value;
+
+                // 计算新的Page和格子编号，5个Page，每个Page 35格
+                // 旧的7个Page，25格：总共7*25=175个格子
+                // 新的5个Page，35格：总共5*35=175个格子
+                uint newPage = absoluteIndex / 35; // 计算新Page的编号
+                uint newSlot = absoluteIndex % 35; // 计算新格子的位置
+
+                // 根据新的转换规则处理
+                if (_retainerSellAtkValueCache.TryGetValue((InventoryType)(10000 + newPage), out var value))
+                {
+                    return value;
+                }
+            }
+            else
+            {
+                _retainerSellAtkValueCache.TryGetValue(type, out var value);
+                return value;
+            }
+
+            throw new ArgumentException("Invalid inventory type or slot.");
+        }
     }
 
     public enum InventoryType
@@ -74,9 +141,9 @@ namespace CriticalCommonLib.Enums {
         Bag3 = 3,
 
         // 装备套装,EquippedItems
-        [InventoryTypeInfo(InventoryCategory.CharacterEquipped, "装备套装1", "角色装备1")]
+        [InventoryTypeInfo(InventoryCategory.CharacterEquipped, "装备中", "装备中")]
         GearSet0 = 1000,
-        [InventoryTypeInfo(InventoryCategory.CharacterEquipped, "装备套装2", "角色装备2")]
+        [InventoryTypeInfo(InventoryCategory.CharacterEquipped, "装备中", "装备中")]
         GearSet1 = 1001,
 
         // 货币和水晶
@@ -128,7 +195,7 @@ namespace CriticalCommonLib.Enums {
         ArmoryWrist = 3209,
         [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "戒指兵装库")]
         ArmoryRing = 3300,
-        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "职业水晶")] // 保留原名称（无"装备"前缀）
+        [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "职业水晶")]
         ArmorySoulCrystal = 3400,
         [InventoryTypeInfo(InventoryCategory.CharacterArmoryChest, "主手兵装库")]
         ArmoryMain = 3500,

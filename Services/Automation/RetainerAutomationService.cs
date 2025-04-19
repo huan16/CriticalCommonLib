@@ -27,9 +27,12 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
 using Microsoft.Extensions.Hosting;
+using InventoryItem = CriticalCommonLib.Models.InventoryItem;
 
 using static ECommons.GenericHelpers;
 using static ECommons.UIHelpers.AtkReaderImplementations.ReaderContextMenu;
+using CriticalCommonLib.Enums;
+using InventoryType = FFXIVClientStructs.FFXIV.Client.Game.InventoryType;
 
 namespace CriticalCommonLib.Services.Automation;
 
@@ -198,7 +201,7 @@ public unsafe class RetainerAutomationService(
     }
 
     // 打开当前雇员的出售商品列表
-    public bool? ClickRetainerSaleList()
+    public bool? ClickRetainerSellList()
     {
         var text = new string[]
         {
@@ -236,6 +239,40 @@ public unsafe class RetainerAutomationService(
         }
 
         return false;
+    }
+
+    public unsafe bool? HandinItemAtRetainerSellList(InventoryItem item)
+    {
+        try
+        {
+            if (this.retainerSellList != null && IsAddonReady(this.retainerSellList) && this.retainerSell == null)
+            {
+                uint retainerSellListAtkValue = item.Container.GetRetainerSellAtkValue(item.Slot);
+                pluginLog.Debug($"上交物品到雇员出售列表 商品ID:{item.ItemId}, Atk值:{retainerSellListAtkValue}, 位置:{item.Container}, 格子:{(uint)item.Slot}");
+                Callback.Fire(this.retainerSellList, true, (int)2, (int)retainerSellListAtkValue, (int)item.Slot);
+
+                return true;
+            }
+            else
+            {
+                AllaganThrottle.RethrottleGeneric();
+            }
+        }
+        catch (Exception ex)
+        {
+            pluginLog.Error($"HandinItemAtRetainerSellList exception: {ex}");
+        }
+
+        return false;
+    }
+
+    private static unsafe ushort GetFirstAvailableSlot(InventoryType container)
+    {
+        var cont = InventoryManager.Instance()->GetInventoryContainer(container);
+        for (var i = 0; i < cont->Size; i++)
+            if (cont->Items[i].ItemId == 0)
+                return (ushort)i;
+        return 0;
     }
 
     // 该函数使用字符串检测能够修改价格，不推荐使用
@@ -298,8 +335,18 @@ public unsafe class RetainerAutomationService(
     }
 
     // 修改当前出售商品的价格
-    public unsafe bool AdjustSaleItemPrice(int inputPrice)
+    public unsafe bool AdjustSaleItemPrice(int inputPrice, int? quantity = null)
     {
+        if (inputPrice <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(inputPrice));
+        }
+
+        if (quantity != null && quantity <= 0) 
+        {
+            throw new ArgumentOutOfRangeException(nameof(quantity));
+        }
+
         if (this.retainerSell != null && IsAddonReady(this.retainerSell.Base))
         {
             if (AllaganThrottle.ThrottleGeneric())
@@ -320,6 +367,10 @@ public unsafe class RetainerAutomationService(
 
                 // 设置价格
                 priceInput->SetValue(inputPrice);
+                if (quantity != null)
+                {
+                    quantityInput->SetValue(quantity.Value);
+                }
 
                 return true;
             }
@@ -354,7 +405,7 @@ public unsafe class RetainerAutomationService(
     }
 
     // 关闭当前雇员的出售商品列表
-    public bool CloseRetainerSaleList()
+    public bool CloseRetainerSellList()
     {
         if (this.retainerSellList != null && IsAddonReady(this.retainerSellList))
         {

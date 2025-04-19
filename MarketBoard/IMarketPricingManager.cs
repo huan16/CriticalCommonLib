@@ -11,8 +11,9 @@ namespace CriticalCommonLib.MarketBoard
         void ClearDatabase();
         void SaveDatabase(bool forceSave = false);
 
-        bool GetRecommendedPrice(uint itemId, uint worldId, bool? isHq, out uint? recommendedUnitPrice);
-        bool GetMBRecommendedPrice(uint itemId, uint worldId, bool? isHq, out uint? recommendedUnitPrice);
+        bool GetRecommendedPrice(uint itemId, uint worldId, bool isHq, out uint? recommendedUnitPrice);
+        bool GetMBRecommendedPrice(uint itemId, uint worldId, bool isHq, out uint? recommendedUnitPrice);
+        uint? GetRecommendedStackSize(uint itemId, uint worldId, bool isHq);
         DateTime GetLastUpdateTime(uint itemId, uint worldId);
         bool IsNeedUpdate(uint itemId, uint worldId);
         bool IsMarketBoardPriceNeedUpdate(uint itemId, uint worldID);

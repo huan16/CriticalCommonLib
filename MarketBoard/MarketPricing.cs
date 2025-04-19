@@ -50,9 +50,15 @@ public class MarketPricing : UniversalisApiResponse
     public float MBAvgNQPrice { get; set; }
     public DateTime MBLastUpdate { get; set; } = DateTime.MinValue;
     public List<IMarketBoardItemListing> offerings { get; set; } = new List<IMarketBoardItemListing>();
-    
+    public uint? MBMostFrequentStackSize { get; set; } = null;
+    public uint? MBMostFrequentStackSizeNQ { get; set; } = null;
+    public uint? MBMostFrequentStackSizeHQ { get; set; } = null;
+
     public DateTime UniversalisLastUpdate { get; set; } = DateTime.MinValue;
     public int Available { get; set; } = 0;
+    public uint? UniversalisMostFrequentStackSize { get; set; } = null;
+    public uint? UniversalisMostFrequentStackSizeNQ { get; set; } = null;
+    public uint? UniversalisMostFrequentStackSizeHQ { get; set; } = null;
 
     // 从UniversalisApiResponse推荐的价格
     public uint? UniversalisRecdPrice { get; set; } = null;

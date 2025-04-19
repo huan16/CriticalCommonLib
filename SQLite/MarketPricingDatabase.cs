@@ -103,9 +103,39 @@ namespace CriticalCommonLib.SQLite
                 RecentHistory TEXT,
                 StackSizeHistogram TEXT,
                 StackSizeHistogramNQ TEXT,
-                StackSizeHistogramHQ TEXT
+                StackSizeHistogramHQ TEXT,
+                -- 新增StackSize相关字段
+                MBMostFrequentStackSize INTEGER DEFAULT NULL,
+                MBMostFrequentStackSizeNQ INTEGER DEFAULT NULL,
+                MBMostFrequentStackSizeHQ INTEGER DEFAULT NULL,
+                -- 新增Universalis相关StackSize字段
+                UniversalisMostFrequentStackSize INTEGER DEFAULT NULL,
+                UniversalisMostFrequentStackSizeNQ INTEGER DEFAULT NULL,
+                UniversalisMostFrequentStackSizeHQ INTEGER DEFAULT NULL
             );";
             command.ExecuteNonQuery();
+
+            // 检查并添加新增字段
+            AddColumnIfNotExists("MBMostFrequentStackSize", "INTEGER DEFAULT NULL");
+            AddColumnIfNotExists("MBMostFrequentStackSizeNQ", "INTEGER DEFAULT NULL");
+            AddColumnIfNotExists("MBMostFrequentStackSizeHQ", "INTEGER DEFAULT NULL");
+            AddColumnIfNotExists("UniversalisMostFrequentStackSize", "INTEGER DEFAULT NULL");
+            AddColumnIfNotExists("UniversalisMostFrequentStackSizeNQ", "INTEGER DEFAULT NULL");
+            AddColumnIfNotExists("UniversalisMostFrequentStackSizeHQ", "INTEGER DEFAULT NULL");
+        }
+
+        private void AddColumnIfNotExists(string columnName, string columnDefinition)
+        {
+            try
+            {
+                var command = connection.CreateCommand();
+                command.CommandText = $"ALTER TABLE MarketPricing ADD COLUMN {columnName} {columnDefinition}";
+                command.ExecuteNonQuery();
+            }
+            catch (SqliteException ex) when (ex.SqliteErrorCode == 1 && ex.Message.Contains("duplicate column name"))
+            {
+                // 字段已存在，忽略错误
+            }
         }
 
         /// <summary>
@@ -131,7 +161,9 @@ namespace CriticalCommonLib.SQLite
                 UnitsForSale, UnitsSold, HasData,
                 Offerings,
                 Listings, RecentHistory,
-                StackSizeHistogram, StackSizeHistogramNQ, StackSizeHistogramHQ
+                StackSizeHistogram, StackSizeHistogramNQ, StackSizeHistogramHQ,
+                MBMostFrequentStackSize, MBMostFrequentStackSizeNQ, MBMostFrequentStackSizeHQ,
+                UniversalisMostFrequentStackSize, UniversalisMostFrequentStackSizeNQ, UniversalisMostFrequentStackSizeHQ
             ) VALUES (
                 @ItemId, @WorldId, @LastUploadTime, @MBLastUpdate, @Available,
                 @UniversalisRecdPrice, @UniversalisRecdNQPrice, @UniversalisRecdHQPrice,
@@ -148,7 +180,9 @@ namespace CriticalCommonLib.SQLite
                 @UnitsForSale, @UnitsSold, @HasData,
                 @Offerings,
                 @Listings, @RecentHistory,
-                @StackSizeHistogram, @StackSizeHistogramNQ, @StackSizeHistogramHQ
+                @StackSizeHistogram, @StackSizeHistogramNQ, @StackSizeHistogramHQ,
+                @MBMostFrequentStackSize, @MBMostFrequentStackSizeNQ, @MBMostFrequentStackSizeHQ,
+                @UniversalisMostFrequentStackSize, @UniversalisMostFrequentStackSizeNQ, @UniversalisMostFrequentStackSizeHQ
             )";
 
             // 设置参数
@@ -224,6 +258,38 @@ namespace CriticalCommonLib.SQLite
 
             command.Parameters.AddWithValue("@Offerings", 
                 pricing.offerings != null ? JsonConvert.SerializeObject(pricing.offerings) : "");
+
+            command.Parameters.AddWithValue(
+                "@MBMostFrequentStackSize", 
+                pricing.MBMostFrequentStackSize.HasValue ? 
+                    pricing.MBMostFrequentStackSize.Value : 
+                    DBNull.Value);
+            command.Parameters.AddWithValue(
+                "@MBMostFrequentStackSizeNQ", 
+                pricing.MBMostFrequentStackSizeNQ.HasValue ? 
+                    pricing.MBMostFrequentStackSizeNQ.Value : 
+                    DBNull.Value);
+            command.Parameters.AddWithValue(
+                "@MBMostFrequentStackSizeHQ", 
+                pricing.MBMostFrequentStackSizeHQ.HasValue ? 
+                    pricing.MBMostFrequentStackSizeHQ.Value : 
+                    DBNull.Value);
+
+            command.Parameters.AddWithValue(
+                "@UniversalisMostFrequentStackSize", 
+                pricing.UniversalisMostFrequentStackSize.HasValue ? 
+                    pricing.UniversalisMostFrequentStackSize.Value : 
+                    DBNull.Value);
+            command.Parameters.AddWithValue(
+                "@UniversalisMostFrequentStackSizeNQ", 
+                pricing.UniversalisMostFrequentStackSizeNQ.HasValue ? 
+                    pricing.UniversalisMostFrequentStackSizeNQ.Value : 
+                    DBNull.Value);
+            command.Parameters.AddWithValue(
+                "@UniversalisMostFrequentStackSizeHQ", 
+                pricing.UniversalisMostFrequentStackSizeHQ.HasValue ? 
+                    pricing.UniversalisMostFrequentStackSizeHQ.Value : 
+                    DBNull.Value);
 
             command.ExecuteNonQuery();
         }
@@ -381,12 +447,40 @@ namespace CriticalCommonLib.SQLite
                     pricing.offerings = new List<IMarketBoardItemListing>();
                 }
 
+                // 新增StackSize字段读取 - 使用TryGetOrdinal来兼容旧版本数据库
+                pricing.MBMostFrequentStackSize = TryGetNullableUInt(reader, "MBMostFrequentStackSize");
+                pricing.MBMostFrequentStackSizeNQ = TryGetNullableUInt(reader, "MBMostFrequentStackSizeNQ");
+                pricing.MBMostFrequentStackSizeHQ = TryGetNullableUInt(reader, "MBMostFrequentStackSizeHQ");
+
+                // 新增Universalis相关StackSize字段
+                pricing.UniversalisMostFrequentStackSize = TryGetNullableUInt(reader, "UniversalisMostFrequentStackSize");
+                pricing.UniversalisMostFrequentStackSizeNQ = TryGetNullableUInt(reader, "UniversalisMostFrequentStackSizeNQ");
+                pricing.UniversalisMostFrequentStackSizeHQ = TryGetNullableUInt(reader, "UniversalisMostFrequentStackSizeHQ");
+
+
                 return pricing;
             }
             catch (Exception ex)
             {
                 // 记录错误并返回null
                 pluginLog.Error($"Error reading MarketPricing from database: {ex}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 尝试获取可为空的uint字段值，如果字段不存在则返回null
+        /// </summary>
+        private uint? TryGetNullableUInt(SqliteDataReader reader, string columnName)
+        {
+            try
+            {
+                var ordinal = reader.GetOrdinal(columnName);
+                return reader.IsDBNull(ordinal) ? null : (uint?)reader.GetInt32(ordinal);
+            }
+            catch (IndexOutOfRangeException)
+            {
+                // 字段不存在于旧版本数据库中
                 return null;
             }
         }
