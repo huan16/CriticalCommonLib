@@ -404,6 +404,16 @@ namespace CriticalCommonLib.Models
         /// <returns></returns>
         public bool IsSame(InventoryItem otherItem)
         {
+            if (Container != otherItem.Container)
+            {
+                return false;
+            }
+
+            if (Slot != otherItem.Slot)
+            {
+                return false;
+            }
+            
             if (SortedContainer != otherItem.SortedContainer)
             {
                 return false;
