@@ -67,11 +67,8 @@ namespace CriticalCommonLib.Services
         string[] GearSetNames { get; }
         HashSet<(byte, string)> GetGearSets(uint itemId);
         Dictionary<uint, HashSet<(byte, string)>> GetGearSets();
-        unsafe void ParseCharacterBags(InventorySortOrder currentSortOrder, BagChangeContainer changeSet);
         unsafe void ParseSaddleBags(InventorySortOrder currentSortOrder, BagChangeContainer changeSet);
         unsafe void ParsePremiumSaddleBags(InventorySortOrder currentSortOrder, BagChangeContainer changeSet);
-        unsafe void ParseArmouryChest(InventorySortOrder currentSortOrder, BagChangeContainer changeSet);
-        unsafe void ParseCharacterEquipped(BagChangeContainer changeSet);
         unsafe void ParseArmoire(BagChangeContainer changeSet);
         unsafe void ParseGlamourChest(BagChangeContainer changeSet);
         unsafe bool ParseGearSets(BagChangeContainer changeSet);

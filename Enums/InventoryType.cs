@@ -76,6 +76,16 @@ namespace CriticalCommonLib.Enums {
         public static string GetDetailedName(this InventoryType type)
             => _detailedNameCache[type];
 
+        public static bool IsCharacterBag(this InventoryType type)
+        {
+            return (uint)type >= 0 && (uint)type <= 3;
+        }
+
+        public static bool IsCharacterCrystal(this InventoryType type)
+        {
+            return type == InventoryType.Crystal;
+        }
+        
         public static bool IsArmory(this InventoryType type)
         {
             return (uint)type >= 3200 && (uint)type <= 3500;
@@ -89,6 +99,20 @@ namespace CriticalCommonLib.Enums {
         public static bool IsRetainerBag(this InventoryType type)
             => (uint)type >= 10000 && (uint)type <= 10006;
 
+        public static bool IsRetainerCrystal(this InventoryType type)
+            => type == InventoryType.RetainerCrystal;
+
+        public static bool IsRetainerEquipped(this InventoryType type)
+            => type == InventoryType.RetainerEquippedGear;
+
+        public static bool IsRetainerMarket(this InventoryType type)
+            => type == InventoryType.RetainerMarket;
+
+        public static bool IsRetainerGil(this InventoryType type)
+            => type == InventoryType.RetainerGil;
+
+        public static bool IsFreeCompanyBag(this InventoryType type)
+            => (uint)type >= 20000 && (uint)type <= 22001;
         public static FFXIVClientStructs.FFXIV.Client.Game.InventoryType ToGameType(this InventoryType type)
         {
             return (FFXIVClientStructs.FFXIV.Client.Game.InventoryType)(int)type;

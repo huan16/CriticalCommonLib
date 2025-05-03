@@ -21,7 +21,7 @@ using Newtonsoft.Json;
 
 namespace CriticalCommonLib.Models
 {
-    public class InventoryItem : IEquatable<InventoryItem>, ICsv, IItem
+    public class InventoryItem : IEquatable<InventoryItem>, IItem
     {
         private readonly ItemSheet _itemSheet;
         private readonly ExcelSheet<Stain> _stainSheet;
@@ -795,15 +795,6 @@ namespace CriticalCommonLib.Models
             return csvData.ToArray();
         }
 
-        public bool IncludeInCsv()
-        {
-            return ItemId != 0;
-        }
-
-        public void PopulateData(Lumina.Excel.ExcelModule gameData, Language language)
-        {
-
-        }
 
         public ulong[] ToNumeric()
         {

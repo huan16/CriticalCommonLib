@@ -10,6 +10,7 @@ using Dalamud.Plugin.Services;
 using static FFXIVClientStructs.FFXIV.Client.Game.InventoryItem;
 using InventoryItem = CriticalCommonLib.Models.InventoryItem;
 using InventoryType = CriticalCommonLib.Enums.InventoryType;
+using CriticalCommonLib.Enums;
 
 namespace CriticalCommonLib.Services
 {
@@ -18,17 +19,15 @@ namespace CriticalCommonLib.Services
         public delegate void InventoryChangedDelegate(List<InventoryChange> inventoryChanges, ItemChanges? itemChanges = null);
 
         private IEnumerable<InventoryItem> _allItems;
-        private ICharacterMonitor _characterMonitor;
+        private readonly ICharacterMonitor _characterMonitor;
         private Dictionary<ulong, Inventory> _inventories;
         private Dictionary<(uint, ItemFlags, ulong), int> _retainerItemCounts = new();
         private Dictionary<(uint, ItemFlags), int> _itemCounts = new();
-        private Dictionary<InventoryType, bool> _loadedInventories;
-        private Queue<DateTime> _scheduledUpdates = new ();
         private IInventoryScanner _inventoryScanner;
-        private ICraftMonitor _craftMonitor;
         private IFramework _frameworkService;
         private readonly IPluginLog _pluginLog;
         private readonly Inventory.Factory _inventoryFactory;
+        private List<InventoryType> changedInventoryTypes;
 
         public InventoryMonitor(
             ICharacterMonitor monitor, 
@@ -39,7 +38,6 @@ namespace CriticalCommonLib.Services
             Inventory.Factory inventoryFactory)
         {
             _characterMonitor = monitor;
-            _craftMonitor = craftMonitor;
             _inventoryScanner = scanner;
             _frameworkService = frameworkService;
             _pluginLog = pluginLog;
@@ -47,7 +45,6 @@ namespace CriticalCommonLib.Services
 
             _inventories = new Dictionary<ulong, Inventory>();
             _allItems = new List<InventoryItem>();
-            _loadedInventories = new Dictionary<InventoryType, bool>();
 
             _inventoryScanner.BagsChanged += InventoryScannerOnBagsChanged;
             _characterMonitor.OnCharacterRemoved += CharacterMonitorOnOnCharacterRemoved;
@@ -56,6 +53,13 @@ namespace CriticalCommonLib.Services
         private void InventoryScannerOnBagsChanged(List<BagChange> changes)
         {
             _pluginLog.Verbose("Bags changed, generating inventory");
+
+            // 提取所有不重复的 InventoryType
+            changedInventoryTypes = changes
+                .Select(change => change.InventoryType.Convert())
+                .Distinct()
+                .ToList();
+
             GenerateInventories(InventoryGenerateReason.ScheduledUpdate);
         }
 
@@ -354,20 +358,19 @@ namespace CriticalCommonLib.Services
 
         private unsafe void GenerateCharacterInventories(Inventory inventory, List<InventoryChange> inventoryChanges)
         {
-            if (_inventoryScanner.InMemory.Contains(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.Inventory2) &&
-                _inventoryScanner.InMemory.Contains(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.Inventory3) &&
-                _inventoryScanner.InMemory.Contains(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.Inventory1) &&
-                _inventoryScanner.InMemory.Contains(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.Inventory4))
+            if (!changedInventoryTypes.Any(c => c.IsCharacterBag()))
             {
-                var bag1 = _inventoryScanner.CharacterBag1;
-                var bag2 = _inventoryScanner.CharacterBag2;
-                var bag3 = _inventoryScanner.CharacterBag3;
-                var bag4 = _inventoryScanner.CharacterBag4;
-                inventory.LoadGameItems(bag1, InventoryType.Bag0, InventoryCategory.CharacterBags, false, inventoryChanges);
-                inventory.LoadGameItems(bag2, InventoryType.Bag1, InventoryCategory.CharacterBags, false, inventoryChanges);
-                inventory.LoadGameItems(bag3, InventoryType.Bag2, InventoryCategory.CharacterBags, false, inventoryChanges);
-                inventory.LoadGameItems(bag4, InventoryType.Bag3, InventoryCategory.CharacterBags, false, inventoryChanges);
+                return;
             }
+            
+            var bag1 = _inventoryScanner.CharacterBag1;
+            var bag2 = _inventoryScanner.CharacterBag2;
+            var bag3 = _inventoryScanner.CharacterBag3;
+            var bag4 = _inventoryScanner.CharacterBag4;
+            inventory.LoadGameItems(bag1, InventoryType.Bag0, InventoryCategory.CharacterBags, false, inventoryChanges);
+            inventory.LoadGameItems(bag2, InventoryType.Bag1, InventoryCategory.CharacterBags, false, inventoryChanges);
+            inventory.LoadGameItems(bag3, InventoryType.Bag2, InventoryCategory.CharacterBags, false, inventoryChanges);
+            inventory.LoadGameItems(bag4, InventoryType.Bag3, InventoryCategory.CharacterBags, false, inventoryChanges);
         }
 
         private unsafe void GenerateSaddleInventories(Inventory inventory, List<InventoryChange> inventoryChanges)
@@ -393,34 +396,35 @@ namespace CriticalCommonLib.Services
 
         private unsafe void GenerateArmouryChestInventories(Inventory inventory, List<InventoryChange> inventoryChanges)
         {
-            HashSet<FFXIVClientStructs.FFXIV.Client.Game.InventoryType> inventoryTypes = new HashSet<FFXIVClientStructs.FFXIV.Client.Game.InventoryType>();
-            inventoryTypes.Add( FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryMainHand);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryHead);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryBody);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryHands);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryLegs);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryFeets);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryOffHand);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryEar);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryNeck);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryWrist);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryRings);
-            inventoryTypes.Add(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmorySoulCrystal);
-            foreach (var inventoryType in inventoryTypes)
+            if (!changedInventoryTypes.Any(c => c.IsArmory()))
             {
-                if (!_inventoryScanner.InMemory.Contains(inventoryType))
-                {
-                    return;
-                }
+                return;
             }
+            
+            HashSet<FFXIVClientStructs.FFXIV.Client.Game.InventoryType> inventoryTypes =
+            [
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryMainHand,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryHead,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryBody,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryHands,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryLegs,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryFeets,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryOffHand,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryEar,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryNeck,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryWrist,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmoryRings,
+                FFXIVClientStructs.FFXIV.Client.Game.InventoryType.ArmorySoulCrystal,
+            ];
 
             var gearSets = _inventoryScanner.GetGearSets();
             foreach (var inventoryType in inventoryTypes)
             {
-                if (!_inventoryScanner.InMemory.Contains(inventoryType))
+                if (!changedInventoryTypes.Any(c => c == inventoryType.Convert()))
                 {
                     continue;
                 }
+                
                 var armoryItems = _inventoryScanner.GetInventoryByType(inventoryType);
                 inventory.LoadGameItems(armoryItems, inventoryType.Convert(), InventoryCategory.CharacterArmoryChest, false, inventoryChanges,
                     (newItem,_) =>
@@ -445,33 +449,40 @@ namespace CriticalCommonLib.Services
 
         private void GenerateEquippedItems(Inventory inventory, List<InventoryChange> inventoryChanges)
         {
-            if (_inventoryScanner.InMemory.Contains(FFXIVClientStructs.FFXIV.Client.Game.InventoryType.EquippedItems))
+            if (!changedInventoryTypes.Any(c => c.IsEquipped()))
             {
-                var bag1 = _inventoryScanner.CharacterEquipped;
-                var gearSets = _inventoryScanner.GetGearSets();
-                inventory.LoadGameItems(bag1, InventoryType.GearSet0, InventoryCategory.CharacterEquipped, false, inventoryChanges,
-                    (newItem,_) =>
-                    {
-                        if(gearSets.ContainsKey(newItem.ItemId))
-                        {
-                            newItem.GearSets = gearSets[newItem.ItemId].Select(c => (uint)c.Item1).ToArray();
-                            newItem.GearSetNames = gearSets[newItem.ItemId].Select(c => c.Item2).ToArray();
-                        }
-                        else if(gearSets.ContainsKey(newItem.ItemId + 1_000_000))
-                        {
-                            newItem.GearSets = gearSets[newItem.ItemId + 1_000_000].Select(c => (uint)c.Item1).ToArray();
-                            newItem.GearSetNames = gearSets[newItem.ItemId + 1_000_000].Select(c => c.Item2).ToArray();
-                        }
-                        else
-                        {
-                            newItem.GearSets = new uint[]{};
-                        }
-                    });
+                return;
             }
+            
+            var bag1 = _inventoryScanner.CharacterEquipped;
+            var gearSets = _inventoryScanner.GetGearSets();
+            inventory.LoadGameItems(bag1, InventoryType.GearSet0, InventoryCategory.CharacterEquipped, false, inventoryChanges,
+                (newItem,_) =>
+                {
+                    if(gearSets.ContainsKey(newItem.ItemId))
+                    {
+                        newItem.GearSets = gearSets[newItem.ItemId].Select(c => (uint)c.Item1).ToArray();
+                        newItem.GearSetNames = gearSets[newItem.ItemId].Select(c => c.Item2).ToArray();
+                    }
+                    else if(gearSets.ContainsKey(newItem.ItemId + 1_000_000))
+                    {
+                        newItem.GearSets = gearSets[newItem.ItemId + 1_000_000].Select(c => (uint)c.Item1).ToArray();
+                        newItem.GearSetNames = gearSets[newItem.ItemId + 1_000_000].Select(c => c.Item2).ToArray();
+                    }
+                    else
+                    {
+                        newItem.GearSets = new uint[]{};
+                    }
+                });
         }
 
         private void GenerateFreeCompanyInventories(List<InventoryChange> inventoryChanges)
         {
+            if (!changedInventoryTypes.Any(c => c.IsFreeCompanyBag()))
+            {
+                return;
+            }
+
             var freeCompanyId = _characterMonitor.ActiveFreeCompanyId;
             if (freeCompanyId == 0) return;
 
@@ -600,6 +611,15 @@ namespace CriticalCommonLib.Services
         /// <param name="inventoryChanges">用于记录库存变化的列表</param>
         private unsafe void GenerateRetainerInventories(List<InventoryChange> inventoryChanges)
         {
+            if (!changedInventoryTypes.Any(c => c.IsRetainerBag() ||
+                c.IsRetainerCrystal() ||
+                c.IsRetainerEquipped() ||
+                c.IsRetainerGil() ||
+                c.IsRetainerMarket()))
+            {
+                return;
+            }
+
             var activeRetainerId = _characterMonitor.ActiveRetainerId;
             HashSet<FFXIVClientStructs.FFXIV.Client.Game.InventoryType> inventoryTypes =
             [
@@ -701,15 +721,13 @@ namespace CriticalCommonLib.Services
         }
         private void GenerateCrystalInventories(Inventory inventory, List<InventoryChange> inventoryChanges)
         {
-            HashSet<FFXIVClientStructs.FFXIV.Client.Game.InventoryType> inventoryTypes = new HashSet<FFXIVClientStructs.FFXIV.Client.Game.InventoryType>();
-            inventoryTypes.Add( FFXIVClientStructs.FFXIV.Client.Game.InventoryType.Crystals);
-            foreach (var inventoryType in inventoryTypes)
+            if (!changedInventoryTypes.Any(inv => inv.IsCharacterCrystal()))
             {
-                if (!_inventoryScanner.InMemory.Contains(inventoryType))
-                {
-                    return;
-                }
+                return;
             }
+            
+            HashSet<FFXIVClientStructs.FFXIV.Client.Game.InventoryType> inventoryTypes = 
+                [FFXIVClientStructs.FFXIV.Client.Game.InventoryType.Crystals];
 
             foreach (var inventoryType in inventoryTypes)
             {
