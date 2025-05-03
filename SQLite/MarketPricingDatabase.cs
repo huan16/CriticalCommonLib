@@ -256,8 +256,8 @@ namespace CriticalCommonLib.SQLite
             command.Parameters.AddWithValue("@StackSizeHistogramNQ", pricing.stackSizeHistogramNQ != null ? JsonConvert.SerializeObject(pricing.stackSizeHistogramNQ) : "");
             command.Parameters.AddWithValue("@StackSizeHistogramHQ", pricing.stackSizeHistogramHQ != null ? JsonConvert.SerializeObject(pricing.stackSizeHistogramHQ) : "");
 
-            command.Parameters.AddWithValue("@Offerings", 
-                pricing.offerings != null ? JsonConvert.SerializeObject(pricing.offerings) : "");
+            // command.Parameters.AddWithValue("@Offerings", 
+            //     pricing.offerings != null ? JsonConvert.SerializeObject(pricing.offerings) : "");
 
             command.Parameters.AddWithValue(
                 "@MBMostFrequentStackSize", 
@@ -436,16 +436,16 @@ namespace CriticalCommonLib.SQLite
                     pricing.stackSizeHistogramHQ = JsonConvert.DeserializeObject<Dictionary<string, int>>(stackSizeHistogramHQStr);
                 }
 
-                var offeringsStr = reader.GetString(reader.GetOrdinal("Offerings"));
-                if (!string.IsNullOrEmpty(offeringsStr))
-                {
-                    var items = JsonConvert.DeserializeObject<List<MarketBoardItemListing>>(offeringsStr);
-                    pricing.offerings = items?.Cast<IMarketBoardItemListing>().ToList() ?? new List<IMarketBoardItemListing>();
-                }
-                else
-                {
-                    pricing.offerings = new List<IMarketBoardItemListing>();
-                }
+                // var offeringsStr = reader.GetString(reader.GetOrdinal("Offerings"));
+                // if (!string.IsNullOrEmpty(offeringsStr))
+                // {
+                //     var items = JsonConvert.DeserializeObject<List<MarketBoardItemListing>>(offeringsStr);
+                //     pricing.offerings = items?.Cast<IMarketBoardItemListing>().ToList() ?? new List<IMarketBoardItemListing>();
+                // }
+                // else
+                // {
+                //     pricing.offerings = new List<IMarketBoardItemListing>();
+                // }
 
                 // 新增StackSize字段读取 - 使用TryGetOrdinal来兼容旧版本数据库
                 pricing.MBMostFrequentStackSize = TryGetNullableUInt(reader, "MBMostFrequentStackSize");
