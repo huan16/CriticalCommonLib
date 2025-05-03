@@ -13,6 +13,7 @@ namespace CriticalCommonLib.MarketBoard
 
         bool GetRecommendedPrice(uint itemId, uint worldId, bool isHq, out uint? recommendedUnitPrice);
         bool GetMBRecommendedPrice(uint itemId, uint worldId, bool isHq, out uint? recommendedUnitPrice);
+        bool GetMinPrice(uint itemId, uint worldId, bool isHq, out uint? minPrice);
         uint? GetRecommendedStackSize(uint itemId, uint worldId, bool isHq);
         DateTime GetLastUpdateTime(uint itemId, uint worldId);
         bool IsNeedUpdate(uint itemId, uint worldId);

@@ -164,15 +164,11 @@ public unsafe class RetainerAutomationService(
 
     public unsafe bool? CloseRetainerList()
     {
-        if (this.retainerList != null && IsAddonReady(this.retainerList.Base))
+        if (AllaganThrottle.ThrottleGeneric() && this.retainerList != null && IsAddonReady(this.retainerList.Base))
         {
             pluginLog.Verbose("Close retainer list.");
             Callback.Fire(this.retainerList.Base, true, -1);
             return true;
-        }
-        else
-        {
-            AllaganThrottle.RethrottleGeneric();
         }
 
         return false;
@@ -181,7 +177,7 @@ public unsafe class RetainerAutomationService(
     // 打开指定显示顺序的雇员
     public bool? ClickRetainer(int displayOrder)
     {
-        if (this.retainerList != null && this.retainerList.Retainers != null)
+        if (AllaganThrottle.ThrottleGeneric() && this.retainerList != null && this.retainerList.Retainers != null)
         {
             if (displayOrder >= this.retainerList.Retainers.Length)
             {
@@ -191,10 +187,6 @@ public unsafe class RetainerAutomationService(
 
             this.retainerList.Retainers[displayOrder].Select();
             return true;
-        }
-        else
-        {
-            AllaganThrottle.RethrottleGeneric();
         }
 
         return false;
@@ -209,13 +201,9 @@ public unsafe class RetainerAutomationService(
             Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.Addon>().GetRow(2381).Text.ToDalamudString().GetText(),
         };
 
-        if (SelectStringHandler.TrySelectSpecificEntry(text))
+        if (AllaganThrottle.ThrottleGeneric() && SelectStringHandler.TrySelectSpecificEntry(text))
         {
             return true;
-        }
-        else
-        {
-            AllaganThrottle.RethrottleGeneric();
         }
 
         return false;
@@ -224,7 +212,7 @@ public unsafe class RetainerAutomationService(
     // 打开指定显示顺序的出售商品修改界面
     public unsafe bool? ClickRetainerSaleItem(int itemIndex)
     {
-        if (this.retainerSellList != null && IsAddonReady(this.retainerSellList) && this.retainerSell == null)
+        if (AllaganThrottle.ThrottleGeneric() && this.retainerSellList != null && IsAddonReady(this.retainerSellList) && this.retainerSell == null)
         {
             var itemCount = this.retainerSellList->UldManager.NodeListCount;
             ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(itemIndex, itemCount);
@@ -232,10 +220,6 @@ public unsafe class RetainerAutomationService(
             pluginLog.Verbose($"Clicking item {itemIndex}");
             Callback.Fire(this.retainerSellList, true, 0, itemIndex, 1);
             return true;
-        }
-        else
-        {
-            AllaganThrottle.RethrottleGeneric();
         }
 
         return false;
@@ -245,17 +229,13 @@ public unsafe class RetainerAutomationService(
     {
         try
         {
-            if (this.retainerSellList != null && IsAddonReady(this.retainerSellList) && this.retainerSell == null)
+            if (AllaganThrottle.ThrottleGeneric() && this.retainerSellList != null && IsAddonReady(this.retainerSellList) && this.retainerSell == null)
             {
                 uint retainerSellListAtkValue = item.Container.GetRetainerSellAtkValue(item.Slot);
-                pluginLog.Debug($"上交物品到雇员出售列表 商品ID:{item.ItemId}, Atk值:{retainerSellListAtkValue}, 位置:{item.Container}, 格子:{(uint)item.Slot}");
-                Callback.Fire(this.retainerSellList, true, (int)2, (int)retainerSellListAtkValue, (int)item.Slot);
+                pluginLog.Debug($"上交物品到雇员出售列表 商品ID:{item.ItemId}, Atk值:{retainerSellListAtkValue}, 位置:{item.Container}, 格子:{(uint)item.SortedSlotIndex}");
+                Callback.Fire(this.retainerSellList, true, 2, (int)retainerSellListAtkValue, item.SortedSlotIndex);
 
                 return true;
-            }
-            else
-            {
-                AllaganThrottle.RethrottleGeneric();
             }
         }
         catch (Exception ex)
@@ -278,7 +258,7 @@ public unsafe class RetainerAutomationService(
     // 该函数使用字符串检测能够修改价格，不推荐使用
     public unsafe bool? ClickAdjustPrice()
     {
-        if (TryGetAddonByName<AtkUnitBase>("ContextMenu", out var addon) && IsAddonReady(addon))
+        if (AllaganThrottle.ThrottleGeneric() && TryGetAddonByName<AtkUnitBase>("ContextMenu", out var addon) && IsAddonReady(addon))
         {
             var reader = new ReaderContextMenu(addon);
             if (IsItemPriceAdjustable(reader.Entries))
@@ -294,25 +274,17 @@ public unsafe class RetainerAutomationService(
 
             return true;
         }
-        else
-        {
-            AllaganThrottle.RethrottleGeneric();
-        }
 
         return false;
     }
 
     public unsafe bool ClickComparingPrices()
     {
-        if (this.retainerSell != null && IsAddonReady(this.retainerSell.Base))
+        if (AllaganThrottle.ThrottleGeneric() && this.retainerSell != null && IsAddonReady(this.retainerSell.Base))
         {
             Callback.Fire(this.retainerSell.Base, true, 4);
 
             return true;
-        }
-        else
-        {
-            AllaganThrottle.RethrottleGeneric();
         }
 
         return false;
@@ -320,16 +292,12 @@ public unsafe class RetainerAutomationService(
 
     public unsafe bool CloseComparingPrices()
     {
-        if (this.itemSearchResult != null && IsAddonReady(itemSearchResult))
+        if (AllaganThrottle.ThrottleGeneric() && this.itemSearchResult != null && IsAddonReady(itemSearchResult))
         {
             pluginLog.Verbose("Close comparing prices");
             Callback.Fire(this.itemSearchResult, true, -1);
 
             return true;
-        }
-        else
-        {
-            AllaganThrottle.RethrottleGeneric();
         }
         return false;
     }
@@ -379,26 +347,35 @@ public unsafe class RetainerAutomationService(
                 return false;
             }
         }
-        else
-        {
-            AllaganThrottle.RethrottleGeneric();
-        }
 
         return false;
+    }
+
+    public bool IsRetainerSellOpen()
+    {
+        return this.retainerSell != null && IsAddonReady(this.retainerSell.Base);
     }
 
     // 确定当前出售商品的价格
     public bool ConfirmSaleItemPrice()
     {
-        if (this.retainerSell != null && IsAddonReady(this.retainerSell.Base))
+        if (AllaganThrottle.ThrottleGeneric() && this.retainerSell != null && IsAddonReady(this.retainerSell.Base))
         {
             pluginLog.Verbose("Price adjustment confirm.");
             Callback.Fire(this.retainerSell.Base, true, 0);
             return true;
         }
-        else
+
+        return false;
+    }
+
+    public bool CancelSaleItemPrice()
+    {
+        if (AllaganThrottle.ThrottleGeneric() && this.retainerSell != null && IsAddonReady(this.retainerSell.Base))
         {
-            AllaganThrottle.RethrottleGeneric();
+            pluginLog.Verbose("Price adjustment cancel.");
+            Callback.Fire(this.retainerSell.Base, true, 1);
+            return true;
         }
 
         return false;
@@ -407,16 +384,45 @@ public unsafe class RetainerAutomationService(
     // 关闭当前雇员的出售商品列表
     public bool CloseRetainerSellList()
     {
-        if (this.retainerSellList != null && IsAddonReady(this.retainerSellList))
+        if (AllaganThrottle.ThrottleGeneric())
+        {
+            return false;
+        }
+        else if (this.retainerSellList != null && IsAddonReady(this.retainerSellList))
         {
             pluginLog.Verbose("Close retainer sale list.");
 
             Callback.Fire(this.retainerSellList, true, -1);
             return true;
         }
-        else
+
+        return false;
+    }
+
+    public bool CheckRetainerSellClosed()
+    {
+        if (AllaganThrottle.ThrottleGeneric())
         {
-            AllaganThrottle.RethrottleGeneric();
+            return false;
+        }
+
+        // 使用ECommons提供的SelectYesno封装类
+        if (TryGetAddonByName<AddonSelectYesno>("SelectYesno", out var addon) && IsAddonReady(&addon->AtkUnitBase))
+        {
+            pluginLog.Verbose("Click yes when check retainer sell closed.");
+            
+            // 使用封装类提供的安全方法
+            var selectYesNo = new AddonMaster.SelectYesno(addon);
+            if (selectYesNo.ButtonsVisible >= 1) // 确保至少有一个按钮可见
+            {
+                selectYesNo.Yes(); // 使用封装的方法点击"是"按钮
+            }
+            return false;
+        }
+        else if (TryGetAddonByName<AddonSelectString>("SelectString", out var selectStringAddon)
+            && IsAddonReady(&selectStringAddon->AtkUnitBase)) 
+        {
+            return true;
         }
 
         return false;
@@ -427,14 +433,10 @@ public unsafe class RetainerAutomationService(
     {
         var text = Svc.Data.GetExcelSheet<Lumina.Excel.Sheets.Addon>().GetRow(2383).Text.ToDalamudString().GetText();
 
-        if (SelectStringHandler.TrySelectSpecificEntry(text))
+        if (AllaganThrottle.ThrottleGeneric() && SelectStringHandler.TrySelectSpecificEntry(text))
         {
             pluginLog.Verbose("关闭雇员界面");
             return true;
-        }
-        else
-        {
-            AllaganThrottle.RethrottleGeneric();
         }
 
         return false;
@@ -473,42 +475,42 @@ public unsafe class RetainerAutomationService(
 
     private void OnRetainerListOpened(AddonEvent type, AddonArgs args)
     {
-        pluginLog.Debug(args.AddonName + "已打开，指针等于" + args.Addon);
+        pluginLog.Verbose(args.AddonName + "已打开，指针等于" + args.Addon);
 
         this.retainerList = new AddonMaster.RetainerList(args.Addon);
     }
 
     private unsafe void OnRetainerSellListOpened(AddonEvent type, AddonArgs args)
     {
-        pluginLog.Debug(args.AddonName + "已打开，指针等于" + args.Addon);
+        pluginLog.Verbose(args.AddonName + "已打开，指针等于" + args.Addon);
 
         this.retainerSellList = (AtkUnitBase*)args.Addon;
     }
 
     private void OnRetainerSellOpened(AddonEvent type, AddonArgs args)
     {
-        pluginLog.Debug(args.AddonName + "已打开，指针等于" + args.Addon);
+        pluginLog.Verbose(args.AddonName + "已打开，指针等于" + args.Addon);
 
         this.retainerSell = new AddonMaster.RetainerSell(args.Addon);
     }
 
     private void OnItemSearchResultOpened(AddonEvent type, AddonArgs args)
     {
-        pluginLog.Debug(args.AddonName + "已打开，指针等于" + args.Addon);
+        pluginLog.Verbose(args.AddonName + "已打开，指针等于" + args.Addon);
 
         this.itemSearchResult = (AtkUnitBase*)(args.Addon);
     }
     
     private void OnRetainerListClosed(AddonEvent type, AddonArgs args)
     {
-        pluginLog.Debug(args.AddonName + "已关闭，指针等于" + args.Addon);
+        pluginLog.Verbose(args.AddonName + "已关闭，指针等于" + args.Addon);
 
         this.retainerList = null;
     }
 
     private void OnRetainerSellListClosed(AddonEvent type, AddonArgs args)
     {
-        pluginLog.Debug(args.AddonName + "已关闭，指针等于" + args.Addon);
+        pluginLog.Verbose(args.AddonName + "已关闭，指针等于" + args.Addon);
 
         // 当出售列表关闭时清空指针
         this.retainerSellList = null;
@@ -516,7 +518,7 @@ public unsafe class RetainerAutomationService(
 
     private void OnRetainerSellClosed(AddonEvent type, AddonArgs args)
     {
-        pluginLog.Debug(args.AddonName + "已关闭，指针等于" + args.Addon);
+        pluginLog.Verbose(args.AddonName + "已关闭，指针等于" + args.Addon);
 
         // 当价格调整窗口关闭时清空引用
         this.retainerSell = null;
@@ -524,7 +526,7 @@ public unsafe class RetainerAutomationService(
 
     private void OnItemSearchResultClosed(AddonEvent type, AddonArgs args)
     {
-        pluginLog.Debug(args.AddonName + "已关闭，指针等于" + args.Addon);
+        pluginLog.Verbose(args.AddonName + "已关闭，指针等于" + args.Addon);
 
         this.itemSearchResult = null;
     }

@@ -95,6 +95,7 @@ namespace CriticalCommonLib.Services
             }
         }
 
+        // BUG:传送到其他小区后，有可能导致雇员的世界Id错误地被识别为其他小区，且无法恢复，需要重新载入插件
         public unsafe void RefreshActiveCharacter()
         {
             if (_clientState.IsLoggedIn && _clientState.LocalPlayer != null && _clientState.LocalContentId != 0)

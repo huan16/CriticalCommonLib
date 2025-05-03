@@ -7,6 +7,15 @@ using System.Linq.Expressions;
 
 namespace CriticalCommonLib.MarketBoard;
 
+public static class MarketPricingExtensions
+{
+    public static DateTime ToDateTime(this long unixTimeMilliseconds)
+    {
+        // DateTimeOffset.FromUnixTimeMilliseconds会自动处理时区转换
+        return DateTimeOffset.FromUnixTimeMilliseconds(unixTimeMilliseconds).LocalDateTime;
+    }
+}
+
 public class MarketPricing : UniversalisApiResponse
 {
     // 静态字典缓存属性访问器

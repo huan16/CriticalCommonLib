@@ -23,8 +23,8 @@ namespace CriticalCommonLib.Models
 {
     public class InventoryItem : IEquatable<InventoryItem>, ICsv, IItem
     {
-        private readonly ItemSheet _itemSheet;
-        private readonly ExcelSheet<Stain> _stainSheet;
+        private ItemSheet _itemSheet;
+        private ExcelSheet<Stain> _stainSheet;
         public InventoryType Container;
         public short Slot;
         public uint Quantity;
@@ -61,6 +61,12 @@ namespace CriticalCommonLib.Models
         public delegate InventoryItem Factory();
 
         public InventoryItem(ItemSheet itemSheet, ExcelSheet<Stain> stainSheet)
+        {
+            _itemSheet = itemSheet;
+            _stainSheet = stainSheet;
+        }
+
+        public void ExcelSheetInitialize(ItemSheet itemSheet, ExcelSheet<Stain> stainSheet)
         {
             _itemSheet = itemSheet;
             _stainSheet = stainSheet;
@@ -154,7 +160,8 @@ namespace CriticalCommonLib.Models
         public bool IsGearSet => GearSets?.Any() ?? false;
         [JsonIgnore]
         public bool IsArmory => Container.IsArmory();
-
+        [JsonIgnore]
+        public bool IsListable => Container.IsCharacterBag() || Container.IsCharacterBagCrystal() || Container.IsRetainerBag() || Container.IsRetainerBagCrystal() || (Container.IsArmory() && !Container.IsEquipped());
         [JsonIgnore]
         public int ActualSpiritbond => Spiritbond / 100;
 

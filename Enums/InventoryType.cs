@@ -51,7 +51,7 @@ namespace CriticalCommonLib.Enums {
                 {InventoryType.ArmoryOffHand, 63},
                 {InventoryType.ArmoryEar, 64},
                 {InventoryType.ArmoryNeck, 65},
-                {InventoryType.ArmoryWaist, 66},
+                {InventoryType.ArmoryWrist, 66},
                 {InventoryType.ArmoryRing, 67}
             };
 
@@ -76,6 +76,11 @@ namespace CriticalCommonLib.Enums {
         public static string GetDetailedName(this InventoryType type)
             => _detailedNameCache[type];
 
+        public static bool IsSaddleBag(this InventoryType type)
+        {
+            return (uint)type >= 4000 && (uint)type <= 4101;
+        }
+
         public static bool IsArmory(this InventoryType type)
         {
             return (uint)type >= 3200 && (uint)type <= 3500;
@@ -86,9 +91,20 @@ namespace CriticalCommonLib.Enums {
             return (uint)type >= 1000 && (uint)type <= 1001;
         }
 
+        public static bool IsCharacterBag(this InventoryType type)
+        {
+            return (uint)type >= 0 && (uint)type <= 3;
+        }
+
+        public static bool IsCharacterBagCrystal(this InventoryType type)
+            => (uint)type == 2001;
+
         public static bool IsRetainerBag(this InventoryType type)
             => (uint)type >= 10000 && (uint)type <= 10006;
 
+        public static bool IsRetainerBagCrystal(this InventoryType type)
+            => (uint)type == 12001;
+            
         public static FFXIVClientStructs.FFXIV.Client.Game.InventoryType ToGameType(this InventoryType type)
         {
             return (FFXIVClientStructs.FFXIV.Client.Game.InventoryType)(int)type;
@@ -96,35 +112,12 @@ namespace CriticalCommonLib.Enums {
 
         public static uint GetRetainerSellAtkValue(this InventoryType type, short? slot = null)
         {
-            if (type.IsRetainerBag())
+            if (!_retainerSellAtkValueCache.TryGetValue(type, out var value))
             {
-                if (slot == null)
-                {
-                    throw new ArgumentNullException(nameof(slot));
-                }
-
-                uint enumUintValue = (uint)type;
-                uint absoluteIndex = (enumUintValue - 10000) * 25 + (uint)slot.Value;
-
-                // 计算新的Page和格子编号，5个Page，每个Page 35格
-                // 旧的7个Page，25格：总共7*25=175个格子
-                // 新的5个Page，35格：总共5*35=175个格子
-                uint newPage = absoluteIndex / 35; // 计算新Page的编号
-                uint newSlot = absoluteIndex % 35; // 计算新格子的位置
-
-                // 根据新的转换规则处理
-                if (_retainerSellAtkValueCache.TryGetValue((InventoryType)(10000 + newPage), out var value))
-                {
-                    return value;
-                }
+                throw new ArgumentException("Invalid inventory type or slot.");
             }
-            else
-            {
-                _retainerSellAtkValueCache.TryGetValue(type, out var value);
-                return value;
-            }
-
-            throw new ArgumentException("Invalid inventory type or slot.");
+            
+            return value;
         }
     }
 

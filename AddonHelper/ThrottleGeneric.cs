@@ -3,30 +3,34 @@ using ECommons.Throttlers;
 namespace CriticalCommonLib.AddonHelper;
 
 internal static class AllaganThrottle{
-    internal static bool ThrottleGeneric(int num) => FrameThrottler.Throttle("AllaganMarketGenericThrottle", num, false);
-
-    internal static bool ThrottleGeneric() => FrameThrottler.Throttle("AllaganMarketGenericThrottle", 5, false);
-
-    internal static void RethrottleGeneric(int num)
+    internal static bool ThrottleGeneric(int num)
     {
-        FrameThrottler.Throttle("AllaganMarketGenericThrottle", num, true);
+        return FrameThrottler.Throttle("AllaganMarketGenericThrottle", num, false);
     }
 
-    internal static void RethrottleGeneric()
-    {
-        FrameThrottler.Throttle("AllaganMarketGenericThrottle", 8, true);
+    internal static bool ThrottleGeneric(){
+        return FrameThrottler.Throttle("AllaganMarketGenericThrottle", 5, false);
     }
 
-    internal static void RethrottleGeneric(string id, int num, bool isFrame)
+    internal static bool RethrottleGeneric(int num)
+    {
+        return FrameThrottler.Throttle("AllaganMarketGenericThrottle", num, true);
+    }
+
+    internal static bool RethrottleGeneric()
+    {
+        return FrameThrottler.Throttle("AllaganMarketGenericThrottle", 8, true);
+    }
+
+    internal static bool RethrottleGeneric(string id, int num, bool isFrame)
     {
         if (isFrame)
         {
-            FrameThrottler.Throttle(id, 8, true);
+            return FrameThrottler.Throttle(id, 8, true);
         }
         else
         {
-            EzThrottler.Throttle(id, num, true);
+            return EzThrottler.Throttle(id, num, true);
         }
-        
     }
 }
