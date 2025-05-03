@@ -101,19 +101,11 @@ namespace CriticalCommonLib.Enums {
             return (uint)type >= 1000 && (uint)type <= 1001;
         }
 
-        public static bool IsCharacterBag(this InventoryType type)
-        {
-            return (uint)type >= 0 && (uint)type <= 3;
-        }
-
         public static bool IsCharacterBagCrystal(this InventoryType type)
             => (uint)type == 2001;
 
         public static bool IsRetainerBag(this InventoryType type)
             => (uint)type >= 10000 && (uint)type <= 10006;
-
-        public static bool IsRetainerCrystal(this InventoryType type)
-            => type == InventoryType.RetainerCrystal;
 
         public static bool IsRetainerEquipped(this InventoryType type)
             => type == InventoryType.RetainerEquippedGear;

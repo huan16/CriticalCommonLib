@@ -612,7 +612,7 @@ namespace CriticalCommonLib.Services
         private unsafe void GenerateRetainerInventories(List<InventoryChange> inventoryChanges)
         {
             if (!changedInventoryTypes.Any(c => c.IsRetainerBag() ||
-                c.IsRetainerCrystal() ||
+                c.IsRetainerBagCrystal() ||
                 c.IsRetainerEquipped() ||
                 c.IsRetainerGil() ||
                 c.IsRetainerMarket()))
