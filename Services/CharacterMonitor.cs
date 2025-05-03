@@ -659,7 +659,7 @@ namespace CriticalCommonLib.Services
         public ulong InternalCharacterId => _clientState.LocalPlayer != null ? _clientState.LocalContentId : 0;
 
         public uint ActiveWorldId => _clientState.LocalPlayer != null ? _clientState.LocalPlayer.HomeWorld.RowId : 0; 
-        public bool IsRetainerLoaded => _isRetainerLoaded;
+        public unsafe bool IsRetainerLoaded => RetainerManager.Instance()->Ready == 1;
         public ulong ActiveRetainerId => _activeRetainerId;
         public ulong ActiveCharacterId => _activeCharacterId;
         public ulong ActiveFreeCompanyId => _activeFreeCompanyId;
@@ -703,39 +703,58 @@ namespace CriticalCommonLib.Services
         }
 
 
-        private void CheckRetainerId(DateTime lastUpdate)
+        private unsafe void CheckRetainerId(DateTime lastUpdate)
         {
-            var retainerId = this.InternalRetainerId;
-            if (ActiveRetainerId != retainerId)
-            {
-                if (_lastRetainerSwap == null)
+            RetainerManager* retainerManager = RetainerManager.Instance();
+
+            if (retainerManager->Ready == 1)
+            { 
+                var currentActiveRetainerId = retainerManager->LastSelectedRetainerId;
+
+                if (currentActiveRetainerId != _activeRetainerId)
                 {
-                    _isRetainerLoaded = false;
-                    _activeRetainerId = retainerId;
-                    _framework.RunOnFrameworkThread(() => { OnActiveRetainerChanged?.Invoke(ActiveRetainerId); });
-                    _lastRetainerSwap = lastUpdate;
-                    return;
-                }
+                    _activeRetainerId = currentActiveRetainerId;
+                    _pluginLog.Debug($"CharacterMonitor: Active retainer id has changed to {_activeRetainerId}");
+                    _framework.RunOnFrameworkThread(() => { OnActiveRetainerChanged?.Invoke(_activeRetainerId); });
+                    
+                } 
             }
-            var waitTime = retainerId == 0 ? 1 : 2;
-            //This is the best I can come up with due it the retainer ID changing but the inventory takes almost a second to locate(I assume as it loads in from the network). This won't really take bad network conditions into account but until I can come up with a more reliable way it'll have to do
-            if(_lastRetainerSwap != null && _lastRetainerSwap.Value.AddSeconds(waitTime) <= lastUpdate)
+            else
             {
-                _pluginLog.Verbose("CharacterMonitor: Active retainer id has changed");
-                _lastRetainerSwap = null;
-                //Make sure the retainer is fully loaded before firing the event
-                if (retainerId != 0)
-                {
-                    _activeRetainerId = retainerId;
-                    _isRetainerLoaded = true;
-                    _framework.RunOnFrameworkThread(() => { OnActiveRetainerLoaded?.Invoke(ActiveRetainerId); });
-                }
+                _activeRetainerId = 0;
             }
 
-            if (_lastRetainerSwap == null && ActiveRetainerId != 0 && !_isRetainerLoaded)
-            {
-                _isRetainerLoaded = true;
-            }
+            // var retainerId = this.InternalRetainerId;
+            // if (ActiveRetainerId != retainerId)
+            // {
+            //     if (_lastRetainerSwap == null)
+            //     {
+            //         _isRetainerLoaded = false;
+            //         _activeRetainerId = retainerId;
+            //         _framework.RunOnFrameworkThread(() => { OnActiveRetainerChanged?.Invoke(ActiveRetainerId); });
+            //         _lastRetainerSwap = lastUpdate;
+            //         return;
+            //     }
+            // }
+            // var waitTime = retainerId == 0 ? 1 : 2;
+            // //This is the best I can come up with due it the retainer ID changing but the inventory takes almost a second to locate(I assume as it loads in from the network). This won't really take bad network conditions into account but until I can come up with a more reliable way it'll have to do
+            // if(_lastRetainerSwap != null && _lastRetainerSwap.Value.AddSeconds(waitTime) <= lastUpdate)
+            // {
+            //     _pluginLog.Verbose("CharacterMonitor: Active retainer id has changed");
+            //     _lastRetainerSwap = null;
+            //     //Make sure the retainer is fully loaded before firing the event
+            //     if (retainerId != 0)
+            //     {
+            //         _activeRetainerId = retainerId;
+            //         _isRetainerLoaded = true;
+            //         _framework.RunOnFrameworkThread(() => { OnActiveRetainerLoaded?.Invoke(ActiveRetainerId); });
+            //     }
+            // }
+
+            // if (_lastRetainerSwap == null && ActiveRetainerId != 0 && !_isRetainerLoaded)
+            // {
+            //     _isRetainerLoaded = true;
+            // }
         }
 
         private void CheckFreeCompanyId(DateTime lastUpdate)

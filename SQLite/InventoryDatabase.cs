@@ -236,12 +236,6 @@ namespace CriticalCommonLib.SQLite
                     item.GearSetNames = JsonConvert.DeserializeObject<string[]>(gearSetNamesStr);
                 }
 
-                // 如果提供了游戏数据，填充相关数据
-                if (gameData != null)
-                {
-                    item.PopulateData(gameData.Excel, gameData.Options.DefaultExcelLanguage);
-                }
-
                 items.Add(item);
             }
 

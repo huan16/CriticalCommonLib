@@ -83,7 +83,9 @@ public class RetainerInventoryScanner : IDisposable
         // 注册事件
         _containerInfoHook.ContainerInfoReceived += OnContainerInfoReceived;
         _characterMonitor.OnActiveRetainerChanged += CharacterMonitorOnOnActiveRetainerChanged;
-        _addonLifecycle.RegisterListener(AddonEvent.PostSetup, "RetainerSellList", OnRetainerSellListPostSetup);
+        _addonLifecycle.RegisterListener(AddonEvent.PostSetup, "RetainerSellList", OnRetainerSellListPostRefresh);
+        _addonLifecycle.RegisterListener(AddonEvent.PostRefresh, "RetainerSellList", OnRetainerSellListPostRefresh);
+        _addonLifecycle.RegisterListener(AddonEvent.PostRefresh, "RetainerList", OnRetainerListPostRefresh);
 
         // 初始化物品栏类型到对应字典的映射
         _inventoryMap = new Dictionary<InventoryType, Dictionary<ulong, InventoryItem[]>>()
@@ -116,7 +118,13 @@ public class RetainerInventoryScanner : IDisposable
         }
     }
     
-    private unsafe void OnRetainerSellListPostSetup(AddonEvent type, AddonArgs args)
+
+    private unsafe void OnRetainerSellListPostRefresh(AddonEvent type, AddonArgs args)
+    {
+        RetainerMarketRefreshed?.Invoke();
+    }
+
+    private unsafe void OnRetainerListPostRefresh(AddonEvent type, AddonArgs args)
     {
         RetainerMarketRefreshed?.Invoke();
     }
@@ -186,8 +194,6 @@ public class RetainerInventoryScanner : IDisposable
         for (var i = 0; i < container->Size; i++)
         {
             var item = container->Items[i];
-            
-            item.Slot = (short)i; // 设置物品的槽位索引
             if (!item.IsSame(targetArray[i])) // 如果物品发生变化
             {
                 targetArray[i] = item; // 更新目标数组中的物品

@@ -55,8 +55,10 @@ namespace CriticalCommonLib.Services
         private readonly IClientState _clientState;
         private readonly IMarketOrderService _marketOrderService;
         private readonly ExcelSheet<MirageStoreSetItem> _mirageStoreSetItemSheet;
+        private readonly CharacterInventoryScanner _characterInventoryScanner;
         private readonly RetainerInventoryScanner _retainerInventoryScanner;
         private readonly FreeCompanyChestScanner _freeCompanyChestScanner;
+        private readonly ArmouryChestScanner _armouryChestScanner;
         public DateTime? _lastStorageCheck;
         public DateTime? _nextBagScan;
 
@@ -69,8 +71,10 @@ namespace CriticalCommonLib.Services
             IGameInteropProvider gameInteropProvider,
             CabinetSheet cabinetSheet, 
             ExcelSheet<MirageStoreSetItem> mirageStoreSetItemSheet, 
+            CharacterInventoryScanner characterInventoryScanner,
             RetainerInventoryScanner retainerInventoryScanner,
             FreeCompanyChestScanner freeCompanyChestScanner,
+            ArmouryChestScanner armouryChestScanner,
             IPluginLog pluginLog,
             ItemSheet itemSheet, 
             IClientState clientState, 
@@ -88,8 +92,10 @@ namespace CriticalCommonLib.Services
             _itemSheet = itemSheet;
             _clientState = clientState;
             _marketOrderService = marketOrderService;
+            _characterInventoryScanner = characterInventoryScanner;
             _retainerInventoryScanner = retainerInventoryScanner;
             _freeCompanyChestScanner = freeCompanyChestScanner;
+            _armouryChestScanner = armouryChestScanner;
 
             _retainerInventoryScanner.RetainerContainersRefreshed += OnRetainerContainerRefreshed;
             _retainerInventoryScanner.RetainerMarketRefreshed += OnRetainerMarketRefreshed;
@@ -396,8 +402,6 @@ namespace CriticalCommonLib.Services
 
         public event BagsChangedDelegate? BagsChanged;
 
-        private unsafe delegate void* NpcSpawnData(int* a1, int a2, int* a3);
-
         private readonly HashSet<InventoryType> _loadedInventories = new();
 
         public void ParseBags()
@@ -417,22 +421,20 @@ namespace CriticalCommonLib.Services
 
                     if (inventorySortOrder != null)
                     {
-                        ParseCharacterBags(inventorySortOrder, changeSet);
+                        _characterInventoryScanner.ParseCharacterBags(inventorySortOrder, changeSet);
                         ParseSaddleBags(inventorySortOrder, changeSet);
                         ParsePremiumSaddleBags(inventorySortOrder, changeSet);
-                        ParseArmouryChest(inventorySortOrder, changeSet);
+                        _armouryChestScanner.ParseArmouryChest(inventorySortOrder, changeSet);
                     }
                     else
                     {
                         _pluginLog.Debug("Could not get inventory sort order, skipping bag scanning");
                     }
 
-                    ParseCharacterEquipped(changeSet);
                     ParseHouseBags(changeSet);
                     ParseArmoire(changeSet);
                     ParseGlamourChest(changeSet);
                     gearSetsChanged = ParseGearSets(changeSet);
-
 
                     if (changeSet.HasChanges && changeSet.changes != null)
                     {
@@ -780,31 +782,31 @@ namespace CriticalCommonLib.Services
         public HashSet<InventoryType> LoadedInventories => _loadedInventories;
         public HashSet<InventoryType> InMemory { get; } = new();
         public Dictionary<ulong, HashSet<InventoryType>> InMemoryFreeCompanies { get; } = new();
-        public InventoryItem[] CharacterBag1 { get; } = new InventoryItem[35];
-        public InventoryItem[] CharacterBag2 { get; } = new InventoryItem[35];
-        public InventoryItem[] CharacterBag3 { get; } = new InventoryItem[35];
-        public InventoryItem[] CharacterBag4 { get; } = new InventoryItem[35];
-        public InventoryItem[] CharacterEquipped { get; } = new InventoryItem[14];
-        public InventoryItem[] CharacterCrystals { get; } = new InventoryItem[18];
-        public InventoryItem[] CharacterCurrency { get; } = new InventoryItem[100];
+        public InventoryItem[] CharacterBag1 => _characterInventoryScanner.CharacterBag1;
+        public InventoryItem[] CharacterBag2 => _characterInventoryScanner.CharacterBag2;
+        public InventoryItem[] CharacterBag3 => _characterInventoryScanner.CharacterBag3;
+        public InventoryItem[] CharacterBag4 => _characterInventoryScanner.CharacterBag4;
+        public InventoryItem[] CharacterEquipped => _characterInventoryScanner.CharacterEquipped;
+        public InventoryItem[] CharacterCrystals => _characterInventoryScanner.CharacterCrystals;
+        public InventoryItem[] CharacterCurrency => _characterInventoryScanner.CharacterCurrency;
 
         public InventoryItem[] SaddleBag1 { get; } = new InventoryItem[35];
         public InventoryItem[] SaddleBag2 { get; } = new InventoryItem[35];
         public InventoryItem[] PremiumSaddleBag1 { get; } = new InventoryItem[35];
         public InventoryItem[] PremiumSaddleBag2 { get; } = new InventoryItem[35];
 
-        public InventoryItem[] ArmouryMainHand { get; } = new InventoryItem[50];
-        public InventoryItem[] ArmouryHead { get; } = new InventoryItem[35];
-        public InventoryItem[] ArmouryBody { get; } = new InventoryItem[35];
-        public InventoryItem[] ArmouryHands { get; } = new InventoryItem[35];
-        public InventoryItem[] ArmouryLegs { get; } = new InventoryItem[35];
-        public InventoryItem[] ArmouryFeet { get; } = new InventoryItem[35];
-        public InventoryItem[] ArmouryOffHand { get; } = new InventoryItem[35];
-        public InventoryItem[] ArmouryEars { get; } = new InventoryItem[35];
-        public InventoryItem[] ArmouryNeck { get; } = new InventoryItem[35];
-        public InventoryItem[] ArmouryWrists { get; } = new InventoryItem[35];
-        public InventoryItem[] ArmouryRings { get; } = new InventoryItem[50];
-        public InventoryItem[] ArmourySoulCrystals { get; } = new InventoryItem[25];
+        public InventoryItem[] ArmouryMainHand => _armouryChestScanner.ArmouryMainHand;
+        public InventoryItem[] ArmouryHead => _armouryChestScanner.ArmouryHead;
+        public InventoryItem[] ArmouryBody => _armouryChestScanner.ArmouryBody;
+        public InventoryItem[] ArmouryHands => _armouryChestScanner.ArmouryHands;
+        public InventoryItem[] ArmouryLegs => _armouryChestScanner.ArmouryLegs;
+        public InventoryItem[] ArmouryFeet => _armouryChestScanner.ArmouryFeet;
+        public InventoryItem[] ArmouryOffHand => _armouryChestScanner.ArmouryOffHand;
+        public InventoryItem[] ArmouryEars => _armouryChestScanner.ArmouryEars;
+        public InventoryItem[] ArmouryNeck => _armouryChestScanner.ArmouryNeck;
+        public InventoryItem[] ArmouryWrists => _armouryChestScanner.ArmouryWrists;
+        public InventoryItem[] ArmouryRings => _armouryChestScanner.ArmouryRings;
+        public InventoryItem[] ArmourySoulCrystals => _armouryChestScanner.ArmourySoulCrystals;
 
 
         public InventoryItem[] FreeCompanyBag1 => _freeCompanyChestScanner.FreeCompanyBags[InventoryType.FreeCompanyPage1];
@@ -882,178 +884,6 @@ namespace CriticalCommonLib.Services
                 }
 
             return gearSets;
-        }
-
-        private List<uint>? _currencyItemIds;
-
-        public unsafe void ParseCharacterBags(InventorySortOrder currentSortOrder, BagChangeContainer changeSet)
-        {
-            var bag0 = InventoryManager.Instance()->GetInventoryContainer(InventoryType.Inventory1);
-            var bag1 = InventoryManager.Instance()->GetInventoryContainer(InventoryType.Inventory2);
-            var bag2 = InventoryManager.Instance()->GetInventoryContainer(InventoryType.Inventory3);
-            var bag3 = InventoryManager.Instance()->GetInventoryContainer(InventoryType.Inventory4);
-            var crystals = InventoryManager.Instance()->GetInventoryContainer(InventoryType.Crystals);
-            var currency = InventoryManager.Instance()->GetInventoryContainer(InventoryType.Currency);
-            if (_currencyItemIds == null)
-            {
-                _currencyItemIds = _itemSheet.Where(c => c.RowId is >= 20 and <= 60 && c.Base.FilterGroup == 16 || c.Base.ItemUICategory.RowId == 100 || c.RowId == 1).Select(c => c.RowId).ToList();
-            }
-
-            if (bag0 != null && bag1 != null && bag2 != null && bag3 != null && crystals != null && currency != null)
-            {
-                InMemory.Add(InventoryType.Inventory1);
-                InMemory.Add(InventoryType.Inventory2);
-                InMemory.Add(InventoryType.Inventory3);
-                InMemory.Add(InventoryType.Inventory4);
-                InMemory.Add(InventoryType.Crystals);
-                InMemory.Add(InventoryType.Currency);
-                var newBags1 = new InventoryItem[35];
-                var newBags2 = new InventoryItem[35];
-                var newBags3 = new InventoryItem[35];
-                var newBags4 = new InventoryItem[35];
-                var bagCount1 = 0;
-                var bagCount2 = 0;
-                var bagCount3 = 0;
-                var bagCount4 = 0;
-
-                //Sort ordering
-                if (currentSortOrder.NormalInventories.ContainsKey("PlayerInventory"))
-                {
-                    var playerInventorySort = currentSortOrder.NormalInventories["PlayerInventory"];
-
-
-                    for (var index = 0; index < playerInventorySort.Count; index++)
-                    {
-                        var sort = playerInventorySort[index];
-                        InventoryContainer* currentBag;
-                        switch (sort.containerIndex)
-                        {
-                            case 0:
-                                currentBag = bag0;
-                                break;
-                            case 1:
-                                currentBag = bag1;
-                                break;
-                            case 2:
-                                currentBag = bag2;
-                                break;
-                            case 3:
-                                currentBag = bag3;
-                                break;
-                            default:
-                                continue;
-                        }
-
-                        if (sort.slotIndex >= currentBag->Size)
-                        {
-                            _pluginLog.Verbose("bag was too big UwU for player inventory");
-                        }
-                        else
-                        {
-                            var sortedBagIndex = index / 35;
-                            switch (sortedBagIndex)
-                            {
-                                case 0:
-                                    newBags1[bagCount1] = currentBag->Items[sort.slotIndex];
-                                    bagCount1++;
-                                    break;
-                                case 1:
-                                    newBags2[bagCount2] = currentBag->Items[sort.slotIndex];
-                                    bagCount2++;
-                                    break;
-                                case 2:
-                                    newBags3[bagCount3] = currentBag->Items[sort.slotIndex];
-                                    bagCount3++;
-                                    break;
-                                case 3:
-                                    newBags4[bagCount4] = currentBag->Items[sort.slotIndex];
-                                    bagCount4++;
-                                    break;
-                                default:
-                                    continue;
-                            }
-                        }
-                    }
-
-                    for (var index = 0; index < newBags1.Length; index++)
-                    {
-                        var newBag = newBags1[index];
-                        newBag.Slot = (short)index;
-                        if (!CharacterBag1[index].IsSame(newBag))
-                        {
-                            CharacterBag1[index] = newBag;
-                            changeSet.Add(new BagChange(newBag, InventoryType.Inventory1));
-                        }
-                    }
-
-                    for (var index = 0; index < newBags2.Length; index++)
-                    {
-                        var newBag = newBags2[index];
-                        newBag.Slot = (short)index;
-                        if (!CharacterBag2[index].IsSame(newBag))                        {
-                            CharacterBag2[index] = newBag;
-                            changeSet.Add(new BagChange(newBag, InventoryType.Inventory2));
-                        }
-                    }
-
-                    for (var index = 0; index < newBags3.Length; index++)
-                    {
-                        var newBag = newBags3[index];
-                        newBag.Slot = (short)index;
-                        if (!CharacterBag3[index].IsSame(newBag))
-                        {
-                            CharacterBag3[index] = newBag;
-                            changeSet.Add(new BagChange(newBag, InventoryType.Inventory3));
-                        }
-                    }
-
-                    for (var index = 0; index < newBags4.Length; index++)
-                    {
-                        var newBag = newBags4[index];
-                        newBag.Slot = (short)index;
-                        if (!CharacterBag4[index].IsSame(newBag))
-                        {
-                            CharacterBag4[index] = newBag;
-                            changeSet.Add(new BagChange(newBag, InventoryType.Inventory4));
-                        }
-                    }
-
-                    for (var i = 0; i < crystals->Size; i++)
-                    {
-                        var item = crystals->Items[i];
-                        item.Slot = (short)i;
-                        if (!CharacterCrystals[i].IsSame(item))
-                        {
-                            CharacterCrystals[i] = item;
-                            changeSet.Add(new BagChange(item, InventoryType.Crystals));
-                        }
-                    }
-
-                    short slot = 0;
-                    foreach (var currencyItemId in _currencyItemIds)
-                    {
-                        var itemCount = InventoryManager.Instance()->GetInventoryItemCount(currencyItemId, false, false, false);
-                        if (itemCount != 0)
-                        {
-                            var fakeInventoryItem = new InventoryItem();
-                            fakeInventoryItem.ItemId = currencyItemId;
-                            fakeInventoryItem.Slot = slot;
-                            fakeInventoryItem.Quantity = itemCount;
-                            fakeInventoryItem.Container = InventoryType.Currency;
-                            fakeInventoryItem.Flags = InventoryItem.ItemFlags.None;
-                            fakeInventoryItem.GlamourId = 0;
-                            if (!CharacterCurrency[slot].IsSame(fakeInventoryItem))
-                            {
-                                CharacterCurrency[slot] = fakeInventoryItem;
-                                changeSet.Add(new BagChange(fakeInventoryItem, InventoryType.Currency));
-                            }
-                        }
-
-                        slot++;
-                    }
-                }
-
-            }
         }
 
         public unsafe void ParseSaddleBags(InventorySortOrder currentSortOrder, BagChangeContainer changeSet)
@@ -1220,115 +1050,6 @@ namespace CriticalCommonLib.Services
                             PremiumSaddleBag2[index] = newBag;
                             changeSet.Add(new BagChange(newBag, InventoryType.PremiumSaddleBag2));
                         }
-                    }
-                }
-            }
-        }
-
-        public unsafe void ParseArmouryChest(InventorySortOrder currentSortOrder, BagChangeContainer changeSet)
-        {
-            foreach (var armoryChest in _armoryChestTypes)
-            {
-                InMemory.Add(armoryChest.Value);
-                if (currentSortOrder.NormalInventories.ContainsKey(armoryChest.Key))
-                {
-                    var bagSpace = 35;
-                    if (armoryChest.Value == InventoryType.ArmoryMainHand || armoryChest.Value == InventoryType.ArmoryRings) bagSpace = 50;
-                    if (armoryChest.Value == InventoryType.ArmorySoulCrystal) bagSpace = 25;
-                    var newBags = new InventoryItem[bagSpace];
-                    var odrOrdering = currentSortOrder.NormalInventories[armoryChest.Key];
-                    var gameOrdering = InventoryManager.Instance()->GetInventoryContainer(armoryChest.Value);
-
-
-                    if (gameOrdering != null && gameOrdering->Loaded != 0)
-                        for (var index = 0; index < odrOrdering.Count; index++)
-                        {
-                            var sort = odrOrdering[index];
-
-                            if (sort.slotIndex >= gameOrdering->Size)
-                            {
-                                _pluginLog.Verbose("bag was too big UwU for " + armoryChest.Key);
-                            }
-                            else
-                            {
-                                InventoryItem[]? bag = null;
-
-                                switch (armoryChest.Value)
-                                {
-                                    case InventoryType.ArmoryBody:
-                                        bag = ArmouryBody;
-                                        break;
-                                    case InventoryType.ArmoryEar:
-                                        bag = ArmouryEars;
-                                        break;
-                                    case InventoryType.ArmoryFeets:
-                                        bag = ArmouryFeet;
-                                        break;
-                                    case InventoryType.ArmoryHands:
-                                        bag = ArmouryHands;
-                                        break;
-                                    case InventoryType.ArmoryHead:
-                                        bag = ArmouryHead;
-                                        break;
-                                    case InventoryType.ArmoryLegs:
-                                        bag = ArmouryLegs;
-                                        break;
-                                    case InventoryType.ArmoryNeck:
-                                        bag = ArmouryNeck;
-                                        break;
-                                    case InventoryType.ArmoryRings:
-                                        bag = ArmouryRings;
-                                        break;
-                                    case InventoryType.ArmoryWrist:
-                                        bag = ArmouryWrists;
-                                        break;
-                                    case InventoryType.ArmoryMainHand:
-                                        bag = ArmouryMainHand;
-                                        break;
-                                    case InventoryType.ArmoryOffHand:
-                                        bag = ArmouryOffHand;
-                                        break;
-                                    case InventoryType.ArmorySoulCrystal:
-                                        bag = ArmourySoulCrystals;
-                                        break;
-                                }
-
-                                if (bag != null)
-                                {
-                                    newBags[index] = gameOrdering->Items[sort.slotIndex];
-                                    newBags[index].Slot = (short)index;
-                                    if (!bag[index].IsSame(newBags[index]))
-                                    {
-                                        bag[index] = newBags[index];
-                                        changeSet.Add(new BagChange(newBags[index], armoryChest.Value));
-                                    }
-                                }
-                            }
-                        }
-                    else
-                        _pluginLog.Verbose("Could generate data for " + armoryChest.Value);
-                }
-                else
-                {
-                    _pluginLog.Verbose("Could not find sort order for" + armoryChest.Value);
-                }
-            }
-        }
-
-        public unsafe void ParseCharacterEquipped(BagChangeContainer changeSet)
-        {
-            var gearSet0 = InventoryManager.Instance()->GetInventoryContainer(InventoryType.EquippedItems);
-            if (gearSet0 != null && gearSet0->Loaded != 0)
-            {
-                InMemory.Add(InventoryType.EquippedItems);
-                for (var i = 0; i < gearSet0->Size; i++)
-                {
-                    var gearItem = gearSet0->Items[i];
-                    gearItem.Slot = (short)i;
-                    if (!gearItem.IsSame(CharacterEquipped[i]))
-                    {
-                        CharacterEquipped[i] = gearItem;
-                        changeSet.Add(new BagChange(gearItem, InventoryType.EquippedItems));
                     }
                 }
             }
@@ -1631,21 +1352,6 @@ namespace CriticalCommonLib.Services
         }
 
         private bool _disposed = false;
-        private Dictionary<string, InventoryType> _armoryChestTypes = new()
-        {
-            { "ArmouryMainHand", InventoryType.ArmoryMainHand },
-            { "ArmouryHead", InventoryType.ArmoryHead },
-            { "ArmouryBody", InventoryType.ArmoryBody },
-            { "ArmouryHands", InventoryType.ArmoryHands },
-            { "ArmouryLegs", InventoryType.ArmoryLegs },
-            { "ArmouryFeet", InventoryType.ArmoryFeets },
-            { "ArmouryOffHand", InventoryType.ArmoryOffHand },
-            { "ArmouryEars", InventoryType.ArmoryEar },
-            { "ArmouryNeck", InventoryType.ArmoryNeck },
-            { "ArmouryWrists", InventoryType.ArmoryWrist },
-            { "ArmouryRings", InventoryType.ArmoryRings },
-            { "ArmourySoulCrystals", InventoryType.ArmorySoulCrystal }
-        };
 
         private InventoryType[] _houseBagTypes = {
             InventoryType.HousingInteriorPlacedItems1,
@@ -1668,12 +1374,6 @@ namespace CriticalCommonLib.Services
             InventoryType.HousingInteriorAppearance,
             InventoryType.HousingExteriorPlacedItems,
             InventoryType.HousingExteriorStoreroom,
-        };
-
-        private readonly InventoryType[] _freeCompanyBagTypes = {
-            InventoryType.FreeCompanyPage1, InventoryType.FreeCompanyPage2, InventoryType.FreeCompanyPage3,
-            InventoryType.FreeCompanyPage4, InventoryType.FreeCompanyPage5, InventoryType.FreeCompanyGil,
-            InventoryType.FreeCompanyCrystals
         };
 
         private readonly Dictionary<uint,HashSet<uint>> _mirageSetLookup;

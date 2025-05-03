@@ -6,9 +6,9 @@ namespace CriticalCommonLib.Crafting;
 
 public class CraftPricer
 {
-    private readonly IMarketPricingManager _marketCache;
+    private readonly IMarketPricingReader _marketCache;
 
-    public CraftPricer(IMarketPricingManager marketCache)
+    public CraftPricer(IMarketPricingReader marketCache)
     {
         this._marketCache = marketCache;
     }
@@ -32,7 +32,7 @@ public class CraftPricer
 
     public List<CraftPriceSource> GetItemPricing(uint itemId, uint worldId)
     {
-        var marketPricing = this._marketCache.GetPricing(itemId, worldId, false);
+        var marketPricing = this._marketCache.GetPricing(itemId, worldId);
         if (marketPricing != null)
         {
             return this.GetItemPricing(marketPricing);
@@ -43,19 +43,11 @@ public class CraftPricer
 
     public List<CraftPriceSource> GetItemPricing(uint itemId, List<uint> worldIds, bool requestPricing = false)
     {
-        if (requestPricing)
-        {
-            this._marketCache.RequestCheck(itemId, worldIds, false);
-        }
         return worldIds.SelectMany(c => this.GetItemPricing(itemId, c)).ToList();
     }
 
     public List<CraftPriceSource> GetItemPricing(List<CraftItem> craftItems, List<uint> worldIds, bool requestPricing = false)
     {
-        if (requestPricing)
-        {
-            this._marketCache.RequestCheck(craftItems.Select(c => c.ItemId).ToList(), worldIds, false);
-        }
         return worldIds.SelectMany(c =>
         {
             return craftItems.SelectMany(craftItem =>
@@ -68,10 +60,6 @@ public class CraftPricer
 
     public List<CraftPriceSource> GetItemPricing(List<uint> itemIds, List<uint> worldIds, bool requestPricing = false)
     {
-        if (requestPricing)
-        {
-            this._marketCache.RequestCheck(itemIds, worldIds, false);
-        }
         return worldIds.SelectMany(c =>
         {
             return itemIds.SelectMany(itemId =>
@@ -83,11 +71,6 @@ public class CraftPricer
     
     public Dictionary<uint,List<CraftPriceSource>> GetItemPricingDictionary(List<uint> itemIds, List<uint> worldIds, bool requestPricing = false)
     {
-        if (requestPricing)
-        {
-            this._marketCache.RequestCheck(itemIds, worldIds, false);
-        }
-
         var pricingDict = new Dictionary<uint, List<CraftPriceSource>>();
         foreach (var itemId in itemIds)
         {
